@@ -16,13 +16,3 @@
 .logoImage {
     margin: auto;
 }
-
-
-/* .roomInput {
-    width: 30% !important;
-} */
-
-.containerCheck {
-    display: flex;
-    align-items: center;
-}

@@ -6,6 +6,7 @@ import Logo from "./simple_logo.svg";
 import Image from "react-bootstrap/Image";
 import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
+import Col from "react-bootstrap/Col";
 
 export const HomePage = () => {
   return (
@@ -14,15 +15,17 @@ export const HomePage = () => {
         <Image src={Logo} alt="service logo" className="logoImage" />
       </Row>
       <Row className="justify-content-center inputRow">
-        <Container className="justify-content-center containerCheck">
+        <Container>
           <Form.Group>
-            <Form.Control
-              type="text"
-              placeholder="Enter Room Name"
-              className="roomInput"
-            />
+            <Col sm={{ span: 4, offset: 4 }}>
+              <Form.Control
+                type="text"
+                placeholder="Enter Room Name"
+                className="mt-5"
+              />
+            </Col>
           </Form.Group>
-          <Button variant="primary">Large button</Button>
+          <Button variant="primary">Submit</Button>
         </Container>
       </Row>
     </Container>

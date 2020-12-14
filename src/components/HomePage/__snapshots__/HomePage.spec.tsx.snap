@@ -1,0 +1,46 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`The HomePage Suite should match the snapshot 1`] = `
+<div>
+  <div
+    class="mainContainer container-fluid"
+  >
+    <div
+      class="justify-content-center logoRow row"
+    >
+      <img
+        alt="service logo"
+        class="logoImage"
+        src="simple_logo.svg"
+      />
+    </div>
+    <div
+      class="justify-content-center inputRow row"
+    >
+      <div
+        class="container"
+      >
+        <div
+          class="form-group"
+        >
+          <div
+            class="col-sm-4 offset-sm-4"
+          >
+            <input
+              class="mt-5 form-control"
+              placeholder="Enter Room Name"
+              type="text"
+            />
+          </div>
+        </div>
+        <button
+          class="btn btn-primary"
+          type="button"
+        >
+          Submit
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+`;

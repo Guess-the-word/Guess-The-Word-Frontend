@@ -1,0 +1,18 @@
+.mainContainer {
+    height: 100%;
+}
+
+.logoRow {
+    height: 60%;
+    background-color: rgb(246, 74, 74);
+}
+
+.inputRow {
+    height: 40%;
+    background-color: #ffd14d;
+    text-align: center;
+}
+
+.logoImage {
+    margin: auto;
+}

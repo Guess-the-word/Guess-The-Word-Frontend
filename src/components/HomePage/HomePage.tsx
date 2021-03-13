@@ -36,9 +36,12 @@ export const HomePage = (props: any) => {
     const submitRoomName = async (roomName: string) => {
         console.log(roomName);
         try {
-            const res = await axios.get("/room");
-            console.log(res);
-            props.history.push("/room");
+            // const res = await axios.get("/room");
+            // console.log(res);
+            props.history.push({
+                pathname: "/room",
+                state: [roomName],
+            });
         } catch (e) {
             console.log(e);
         }

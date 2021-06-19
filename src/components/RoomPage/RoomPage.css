@@ -1,0 +1,27 @@
+.logoR {
+    background-color: rgb(246, 74, 74);
+    height: 10%;
+}
+
+.titleBar {
+    height: 100%;
+    width: 100%;
+}
+
+.videoSection {
+    height: 100%;
+    width: 100%;
+    background-color: aqua;
+}
+
+.participantSection {
+    height: 100%;
+    width: 100%;
+    background-color: gray;
+}
+
+.messageSection {
+    height: 100%;
+    width: 100%;
+    background-color: firebrick;
+}

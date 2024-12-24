@@ -1,19 +1,33 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./HomePage.css";
 import Container from "react-bootstrap/Container";
 import Row from "react-bootstrap/Row";
-import Logo from "./simple_logo.svg";
 import Image from "react-bootstrap/Image";
-import Button from "react-bootstrap/Button";
-import Form from "react-bootstrap/Form";
-import Col from "react-bootstrap/Col";
-import Alert from "react-bootstrap/Alert";
+import { Button, Form, Col, Alert } from "react-bootstrap";
+// TODO: Install react-router-dom package using:
+// npm install react-router-dom @types/react-router-dom
+import { useNavigate } from "react-router-dom";
+import { socket } from "../../services/socket";
 
 export const HomePage = () => {
+  const navigate = useNavigate();
   const [roomName, setRoomName] = useState("");
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [show, setShow] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+
+  useEffect(() => {
+    // Listen for successful room join
+    socket.on('roomUpdate', ({ roomName }: { roomName: string, players: any[] }) => {
+      setIsJoining(false);
+      navigate(`/room/${roomName}`);
+    });
+
+    return () => {
+      socket.off('roomUpdate');
+    };
+  }, [navigate]);
 
   const validateInput = (inputSize: number) => {
     const letterNumber = /^[0-9a-zA-Z]+$/;
@@ -21,12 +35,22 @@ export const HomePage = () => {
       setShowError(true);
       setShow(true);
       setErrorMessage("Length should be between 4 and 10 characters");
+      return false;
     } else if (!letterNumber.test(roomName)) {
       setShowError(true);
       setShow(true);
       setErrorMessage("Room name should only include letters and numbers");
+      return false;
     } else {
       setShowError(false);
+      return true;
+    }
+  };
+
+  const handleSubmit = () => {
+    if (validateInput(roomName.length)) {
+      setIsJoining(true);
+      socket.emit('joinRoom', { roomName });
     }
   };
 
@@ -38,7 +62,7 @@ export const HomePage = () => {
   return (
     <Container fluid className="mainContainer">
       <Row className="justify-content-center logoRow">
-        <Image src={Logo} alt="service logo" className="logoImage" />
+        <h1>Guess The Word</h1>
       </Row>
       <Row className="justify-content-center inputRow">
         <Container>
@@ -63,10 +87,11 @@ export const HomePage = () => {
               </Col>
             </Form.Group>
             <Button
-              onClick={() => validateInput(roomName.length)}
+              onClick={handleSubmit}
               variant="primary"
+              disabled={isJoining}
             >
-              Submit
+              {isJoining ? 'Joining...' : 'Submit'}
             </Button>
           </div>
         </Container>

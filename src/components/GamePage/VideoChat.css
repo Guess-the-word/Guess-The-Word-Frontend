@@ -1,0 +1,31 @@
+.videoChatContainer {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background-color: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+  }
+  
+  .videoGrid {
+    display: grid;
+    gap: 1rem;
+  }
+  
+  /* For up to 4 videos, we do a 2×2 grid. 
+     You can create more breakpoints or logic for >4 participants if needed. */
+  .videoCount-1 {
+    grid-template-columns: 1fr;
+  }
+  .videoCount-2,
+  .videoCount-3,
+  .videoCount-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .videoSlot {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: #333;
+    border-radius: 8px;
+  }

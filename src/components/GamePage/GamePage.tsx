@@ -1,16 +1,12 @@
-/**
- * File: /src/components/GamePage/GamePage.tsx
- */
 import React, { useEffect, useState } from "react";
 import { socket } from "../../services/socket";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button, Alert, Form, Container, Row, Col } from "react-bootstrap";
+import { VideoChat } from "./VideoChat"; // <-- WebRTC-based component
 
-// Use string keys for team IDs
 interface TeamMap {
   [teamId: string]: string[];
 }
-
 interface ScoreMap {
   [teamId: string]: number;
 }
@@ -27,16 +23,12 @@ export const GamePage = () => {
   const [describer, setDescriber] = useState<string | null>(null);
   const [myWord, setMyWord] = useState<string>("");
   const [guess, setGuess] = useState<string>("");
-  // Also use string-based keys here
   const [score, setScore] = useState<ScoreMap>({});
 
   useEffect(() => {
     if (!roomName) return;
-
-    // If user directly navigated here, we want to ensure we join the room
     socket.emit("joinRoom", { roomName });
 
-    // General room updates
     socket.on("roomUpdate", (data) => {
       setPlayers(data.players);
       setTeams(data.teams);
@@ -45,31 +37,26 @@ export const GamePage = () => {
       setCurrentTeam(data.currentTeam);
     });
 
-    // Game started
     socket.on("gameStarted", (data) => {
       setStatus(data.status);
       setCurrentTeam(data.currentTeam);
       setDescriber(data.describer);
       setScore(data.score);
-      setMyWord(""); // clear previous word
+      setMyWord("");
     });
 
-    // The word for me to describe
     socket.on("yourWord", ({ word }) => {
       setMyWord(word);
     });
 
-    // Timer updates
     socket.on("timerUpdate", ({ timeLeft }) => {
       setTimeLeft(timeLeft);
     });
 
-    // Time's up
     socket.on("timeUp", () => {
       alert("Time is up!");
     });
 
-    // Next turn
     socket.on("nextTurn", (data) => {
       setCurrentTeam(data.currentTeam);
       setDescriber(data.describer);
@@ -77,13 +64,11 @@ export const GamePage = () => {
       setMyWord("");
     });
 
-    // Correct guess
     socket.on("correctGuess", (data) => {
       alert(`Team ${data.team} guessed the word "${data.word}"!`);
       setScore(data.score);
     });
 
-    // Cleanup listeners on unmount
     return () => {
       socket.off("roomUpdate");
       socket.off("gameStarted");
@@ -108,44 +93,62 @@ export const GamePage = () => {
   const isDescriber = socket.id === describer;
 
   return (
-    <Container>
+    <Container fluid style={{ marginTop: "2rem" }}>
       <Row>
-        <Col>
+        <Col md={8}>
           <h2>Room: {roomName}</h2>
-          <p>Status: {status}</p>
-          <p>Current Team: {currentTeam}</p>
-          <p>Time Left: {timeLeft}</p>
+          <p>
+            <strong>Status:</strong> {status}
+          </p>
+          <p>
+            <strong>Current Team:</strong> {currentTeam}
+          </p>
+          <p>
+            <strong>Time Left:</strong> {timeLeft}
+          </p>
+        </Col>
+        <Col md={4}>
+          <div
+            style={{ background: "#fafafa", padding: "1rem", borderRadius: 8 }}
+          >
+            <h3>Players</h3>
+            {players.map((p) => (
+              <div key={p}>
+                {p} {p === describer ? "(Describer)" : ""}
+              </div>
+            ))}
+          </div>
         </Col>
       </Row>
 
-      <Row>
-        <Col>
-          <h3>Players</h3>
-          {players.map((p) => (
-            <div key={p}>
-              {p} {p === describer ? "(Describer)" : ""}
-            </div>
-          ))}
+      <Row className="mt-3">
+        <Col md={8}>
+          {/* 2x2 WebRTC video chat */}
+          <VideoChat roomName={roomName || ""} players={players} />
         </Col>
-        <Col>
-          <h3>Teams</h3>
-          {Object.entries(teams).map(([teamId, members]) => (
-            <div key={teamId}>
-              <strong>
-                Team {teamId} (Score: {score[teamId] || 0}):
-              </strong>
-              <ul>
-                {members.map((m) => (
-                  <li key={m}>{m}</li>
-                ))}
-              </ul>
-            </div>
-          ))}
+        <Col md={4}>
+          <div
+            style={{ background: "#fafafa", padding: "1rem", borderRadius: 8 }}
+          >
+            <h3>Teams</h3>
+            {Object.entries(teams).map(([teamId, members]) => (
+              <div key={teamId} style={{ marginBottom: "1rem" }}>
+                <strong>
+                  Team {teamId} (Score: {score[teamId] || 0}):
+                </strong>
+                <ul style={{ listStyleType: "circle", marginLeft: "1.5rem" }}>
+                  {members.map((m) => (
+                    <li key={m}>{m}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </Col>
       </Row>
 
       {status === "waiting" && (
-        <Button onClick={handleStartGame} className="mt-3">
+        <Button onClick={handleStartGame} className="mt-4">
           Start Game
         </Button>
       )}
@@ -157,7 +160,7 @@ export const GamePage = () => {
               <strong>Your word:</strong> {myWord}
             </Alert>
           ) : (
-            <Form.Group as={Row}>
+            <Form.Group as={Row} style={{ marginTop: "1rem" }}>
               <Col sm={6}>
                 <Form.Control
                   type="text"

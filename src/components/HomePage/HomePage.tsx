@@ -17,13 +17,16 @@ export const HomePage = () => {
 
   useEffect(() => {
     // Listen for successful room join
-    socket.on('roomUpdate', ({ roomName }: { roomName: string, players: any[] }) => {
-      setIsJoining(false);
-      navigate(`/room/${roomName}`);
-    });
+    socket.on(
+      "roomUpdate",
+      ({ roomName }: { roomName: string; players: any[] }) => {
+        setIsJoining(false);
+        navigate(`/room/${roomName}`);
+      }
+    );
 
     return () => {
-      socket.off('roomUpdate');
+      socket.off("roomUpdate");
     };
   }, [navigate]);
 
@@ -48,7 +51,7 @@ export const HomePage = () => {
   const handleSubmit = () => {
     if (validateInput(roomName.length)) {
       setIsJoining(true);
-      socket.emit('joinRoom', { roomName });
+      socket.emit("joinRoom", { roomName });
     }
   };
 
@@ -89,7 +92,7 @@ export const HomePage = () => {
               variant="primary"
               disabled={isJoining}
             >
-              {isJoining ? 'Joining...' : 'Submit'}
+              {isJoining ? "Joining..." : "Submit"}
             </Button>
           </div>
         </Container>

@@ -1,0 +1,88 @@
+/* Cozy pastel background */
+body {
+    background-color: #FFF7E6; /* a creamy, soft hue */
+    margin: 0;
+    padding: 0;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+  }
+  
+  .container-fluid {
+    padding: 2rem;
+  }
+  
+  /* Use some gentle box styling */
+  .game-panel {
+    background-color: #FEECDC;
+    border: 2px solid #FECBA6;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  
+  h2 {
+    color: #E58F65;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Minor headings for smaller sections */
+  .game-panel h3 {
+    color: #D25B4B;
+  }
+  
+  /* A custom class for "Players" & "Teams" boxes */
+  .players-box,
+  .teams-box {
+    background-color: #FDE6C3;
+    border: 1px solid #FBC899;
+    border-radius: 6px;
+    padding: 1rem;
+  }
+  
+  /* Video chat container if used */
+  .videoChatContainer {
+    background-color: #FFF3E2;
+    border: 2px solid #FFDAB5;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  
+  /* Guess console styling if you have a guess console */
+  .guess-console {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    width: 280px;
+    max-height: 220px;
+    overflow-y: auto;
+    background-color: #FFF;
+    border: 2px solid #FECBA6;
+    border-radius: 8px;
+    padding: 0.5rem;
+  }
+  
+  .guess-console h4 {
+    margin: 0 0 0.5rem 0;
+    color: #D25B4B;
+  }
+  
+  .console-item {
+    margin-bottom: 0.25rem;
+  }
+  .console-correct {
+    color: green;
+  }
+  .console-incorrect {
+    color: red;
+  }
+  
+  /* Button overrides */
+  .btn-primary {
+    background-color: #E58F65;
+    border-color: #E58F65;
+  }
+  .btn-primary:hover {
+    background-color: #f3a484;
+    border-color: #f3a484;
+  }
+  

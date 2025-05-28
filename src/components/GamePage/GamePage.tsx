@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { socket } from "../../services/socket";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button, Form, Container, Row, Col } from "react-bootstrap";
-import { VideoChat } from "./VideoChat"; // If you have WebRTC
+import { socket } from "../../services/socket";
+import { VideoChat } from "./VideoChat";
 import "./GamePage.css";
 
 interface TeamMap {
@@ -22,7 +22,7 @@ interface GuessLogEntry {
   word?: string;
 }
 
-export const GamePage = () => {
+export const GamePage: React.FC = () => {
   const { roomName } = useParams();
   const navigate = useNavigate();
 
@@ -110,40 +110,36 @@ export const GamePage = () => {
     };
   }, [roomName]);
 
-  const handleStartGame = () => {
+  const handleStartGame = (): void => {
     socket.emit("startGame", { roomName });
   };
 
-  const handleGuessSubmit = () => {
+  const handleGuessSubmit = (): void => {
     if (!guess) return;
     socket.emit("guessWord", { roomName, guess });
     setGuess("");
   };
 
-  const handleNewGame = () => {
+  const handleNewGame = (): void => {
     socket.emit("resetGame", { roomName });
     setGuessLog([]);
   };
 
-  const handleLeaveGame = () => {
-    // Emit leave room event (optional - socket will disconnect anyway)
+  const handleLeaveGame = (): void => {
     socket.emit("leaveRoom", { roomName });
-    // Navigate back to home page
     navigate("/");
   };
 
-  const toggleGuessConsole = () => {
+  const toggleGuessConsole = (): void => {
     setIsGuessConsoleMinimized(!isGuessConsoleMinimized);
   };
 
-  // Helper: get a user's silly name from the ID
-  const getName = (id: string) => {
+  const getName = (id: string): string => {
     return nicknames[id] || id;
   };
 
   return (
     <Container fluid>
-      {/* Main Header */}
       <div
         style={{
           display: "flex",
@@ -178,7 +174,6 @@ export const GamePage = () => {
         </Button>
       </div>
 
-      {/* Game Status Info */}
       <div className="game-info">
         <div className="status-grid">
           <div className="status-item">
@@ -202,12 +197,9 @@ export const GamePage = () => {
 
       <Row>
         <Col lg={8}>
-          {/* Video Chat Container */}
           <div className="videoChatContainer">
             <VideoChat roomName={roomName || ""} players={players} />
           </div>
-
-          {/* Game Controls */}
           {status === "waiting" && (
             <div className="guess-input-container">
               <div style={{ textAlign: "center" }}>
@@ -261,7 +253,6 @@ export const GamePage = () => {
         </Col>
 
         <Col lg={4}>
-          {/* Players Panel */}
           <div className="game-panel players-box">
             <h3>👥 Players</h3>
             {players.map((p) => (
@@ -274,7 +265,6 @@ export const GamePage = () => {
             ))}
           </div>
 
-          {/* Teams Panel */}
           <div className="game-panel teams-box">
             <h3>🏆 Teams</h3>
             {Object.entries(teams).map(([teamId, members]) => (
@@ -296,7 +286,6 @@ export const GamePage = () => {
         </Col>
       </Row>
 
-      {/* Collapsible Guess Console */}
       <div
         className={`guess-console ${
           isGuessConsoleMinimized ? "minimized" : ""

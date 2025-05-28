@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import "./HomePage.css";
 import Container from "react-bootstrap/Container";
 import { Alert } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import { socket } from "../../services/socket";
+import "./HomePage.css";
 
-export const HomePage = () => {
+export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [roomName, setRoomName] = useState("");
   const [showError, setShowError] = useState(false);
@@ -27,32 +27,38 @@ export const HomePage = () => {
     };
   }, [navigate]);
 
-  const validateInput = (inputSize: number) => {
-    const letterNumber = /^[0-9a-zA-Z]+$/;
+  const validateInput = (inputSize: number): boolean => {
+    const alphanumericRegex = /^[0-9a-zA-Z]+$/;
+
     if (inputSize < 4 || inputSize > 10) {
       setShowError(true);
       setErrorMessage("Length should be between 4 and 10 characters");
       return false;
-    } else if (!letterNumber.test(roomName)) {
+    }
+
+    if (!alphanumericRegex.test(roomName)) {
       setShowError(true);
       setErrorMessage("Room name should only include letters and numbers");
       return false;
-    } else {
-      setShowError(false);
-      return true;
     }
+
+    setShowError(false);
+    return true;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = (): void => {
     if (validateInput(roomName.length)) {
       setIsJoining(true);
       socket.emit("joinRoom", { roomName });
     }
   };
 
-  const handleRoomNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRoomNameChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ): void => {
     const value = e.target.value;
     setRoomName(value);
+
     if (value.length > 0) {
       validateInput(value.length);
     } else {
@@ -60,7 +66,7 @@ export const HomePage = () => {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === "Enter" && roomName && !showError) {
       handleSubmit();
     }
@@ -85,12 +91,10 @@ export const HomePage = () => {
       <div className="join-room-card">
         <h2 className="card-title">🚀 Join a Room</h2>
 
-        {/* Error Container */}
         <div className="error-container">
           {showError && <Alert className="error-alert">{errorMessage}</Alert>}
         </div>
 
-        {/* Room Input */}
         <input
           type="text"
           className="room-input"
@@ -101,7 +105,6 @@ export const HomePage = () => {
           disabled={isJoining}
         />
 
-        {/* Submit Button */}
         <button
           className={`submit-button ${isJoining ? "loading" : ""}`}
           onClick={handleSubmit}
@@ -111,7 +114,6 @@ export const HomePage = () => {
         </button>
       </div>
 
-      {/* Features Section */}
       <div className="features-section">
         <div className="feature-card">
           <div className="feature-icon">🎥</div>

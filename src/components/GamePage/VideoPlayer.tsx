@@ -1,9 +1,5 @@
 import React, { useRef, useEffect } from "react";
 
-/**
- * Renders a video track from a MediaStream in a <video> element.
- * Typically used for both local and remote streams.
- */
 interface VideoPlayerProps {
   stream: MediaStream | null;
   muted?: boolean;

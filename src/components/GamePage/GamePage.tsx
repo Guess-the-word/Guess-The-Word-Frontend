@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { socket } from "../../services/socket";
 import { useParams, useNavigate } from "react-router-dom";
-import { Button, Alert, Form, Container, Row, Col } from "react-bootstrap";
+import { Button, Form, Container, Row, Col } from "react-bootstrap";
 import { VideoChat } from "./VideoChat"; // If you have WebRTC
 import "./GamePage.css";
 
@@ -37,6 +37,7 @@ export const GamePage = () => {
   const [score, setScore] = useState<ScoreMap>({});
   const [guessLog, setGuessLog] = useState<GuessLogEntry[]>([]);
   const [nicknames, setNicknames] = useState<NicknameMap>({}); // NEW: silly names
+  const [isGuessConsoleMinimized, setIsGuessConsoleMinimized] = useState(false);
 
   const isDescriber = socket.id === describer;
 
@@ -124,54 +125,167 @@ export const GamePage = () => {
     setGuessLog([]);
   };
 
-  // Helper: get a user’s silly name from the ID
+  const handleLeaveGame = () => {
+    // Emit leave room event (optional - socket will disconnect anyway)
+    socket.emit("leaveRoom", { roomName });
+    // Navigate back to home page
+    navigate("/");
+  };
+
+  const toggleGuessConsole = () => {
+    setIsGuessConsoleMinimized(!isGuessConsoleMinimized);
+  };
+
+  // Helper: get a user's silly name from the ID
   const getName = (id: string) => {
     return nicknames[id] || id;
   };
 
   return (
     <Container fluid>
-      <Row>
-        <Col md={8}>
-          <h2>Room: {roomName}</h2>
-          <p>
-            <strong>Status:</strong> {status}
-          </p>
-          <p>
-            <strong>Current Team:</strong> {currentTeam}
-          </p>
-          <p>
-            <strong>Time Left:</strong> {timeLeft}
-          </p>
-        </Col>
-        <Col md={4}>
-          <div className="game-panel players-box">
-            <h3>Players</h3>
-            {players.map((p) => (
-              <div key={p}>
-                {getName(p)} {p === describer ? "(Describer)" : ""}
-              </div>
-            ))}
-          </div>
-        </Col>
-      </Row>
+      {/* Main Header */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "2rem",
+        }}
+      >
+        <h2 style={{ margin: 0 }}>🎮 {roomName}</h2>
+        <Button
+          variant="outline-light"
+          onClick={handleLeaveGame}
+          style={{
+            background: "rgba(255, 255, 255, 0.1)",
+            border: "2px solid rgba(255, 255, 255, 0.3)",
+            color: "white",
+            fontWeight: "600",
+            padding: "0.5rem 1.5rem",
+            borderRadius: "12px",
+            transition: "all 0.3s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
+            e.currentTarget.style.transform = "translateY(-2px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+        >
+          🚪 Leave Game
+        </Button>
+      </div>
 
-      <Row className="mt-3">
-        <Col md={8}>
-          {/* 2x2 WebRTC video chat */}
+      {/* Game Status Info */}
+      <div className="game-info">
+        <div className="status-grid">
+          <div className="status-item">
+            <div className="status-label">Status</div>
+            <div className="status-value">{status}</div>
+          </div>
+          <div className="status-item">
+            <div className="status-label">Current Team</div>
+            <div className="status-value">Team {currentTeam}</div>
+          </div>
+          <div className="status-item">
+            <div className="status-label">Time Left</div>
+            <div className="status-value">{timeLeft}s</div>
+          </div>
+          <div className="status-item">
+            <div className="status-label">Players Online</div>
+            <div className="status-value">{players.length}</div>
+          </div>
+        </div>
+      </div>
+
+      <Row>
+        <Col lg={8}>
+          {/* Video Chat Container */}
           <div className="videoChatContainer">
             <VideoChat roomName={roomName || ""} players={players} />
           </div>
+
+          {/* Game Controls */}
+          {status === "waiting" && (
+            <div className="guess-input-container">
+              <div style={{ textAlign: "center" }}>
+                <Button onClick={handleStartGame} className="me-3">
+                  🚀 Start Game
+                </Button>
+                <Button variant="outline-primary" onClick={handleNewGame}>
+                  🔄 Reset Game
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {status === "playing" && (
+            <div className="guess-input-container">
+              {isDescriber ? (
+                <div className="word-display">
+                  🎯 Your word: <strong>{myWord}</strong>
+                </div>
+              ) : (
+                <Row className="align-items-center">
+                  <Col md={8}>
+                    <Form.Control
+                      type="text"
+                      placeholder="Enter your guess..."
+                      value={guess}
+                      onChange={(e) => setGuess(e.target.value)}
+                      onKeyPress={(e) =>
+                        e.key === "Enter" && handleGuessSubmit()
+                      }
+                      style={{ fontSize: "1.1rem", padding: "0.75rem" }}
+                    />
+                  </Col>
+                  <Col md={4}>
+                    <Button
+                      onClick={handleGuessSubmit}
+                      style={{ width: "100%" }}
+                    >
+                      🔮 Guess!
+                    </Button>
+                  </Col>
+                </Row>
+              )}
+              <div style={{ textAlign: "center", marginTop: "1rem" }}>
+                <Button variant="outline-primary" onClick={handleNewGame}>
+                  🎲 New Game
+                </Button>
+              </div>
+            </div>
+          )}
         </Col>
-        <Col md={4}>
+
+        <Col lg={4}>
+          {/* Players Panel */}
+          <div className="game-panel players-box">
+            <h3>👥 Players</h3>
+            {players.map((p) => (
+              <div key={p} className="player-item">
+                <span>{getName(p)}</span>
+                {p === describer && (
+                  <span className="describer-badge">Describer</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Teams Panel */}
           <div className="game-panel teams-box">
-            <h3>Teams</h3>
+            <h3>🏆 Teams</h3>
             {Object.entries(teams).map(([teamId, members]) => (
-              <div key={teamId} style={{ marginBottom: "1rem" }}>
-                <strong>
-                  Team {teamId} (Score: {score[teamId] || 0})
-                </strong>
-                <ul style={{ listStyleType: "circle", marginLeft: "1.5rem" }}>
+              <div key={teamId} className="team-container">
+                <div className="team-header">
+                  <span className="team-name">Team {teamId}</span>
+                  <span className="team-score">
+                    Score: {score[teamId] || 0}
+                  </span>
+                </div>
+                <ul className="team-members">
                   {members.map((m) => (
                     <li key={m}>{getName(m)}</li>
                   ))}
@@ -182,72 +296,59 @@ export const GamePage = () => {
         </Col>
       </Row>
 
-      {status === "waiting" && (
-        <>
-          <Button onClick={handleStartGame} className="mt-4">
-            Start Game
-          </Button>{" "}
-          <Button
-            variant="outline-primary"
-            onClick={handleNewGame}
-            className="mt-4"
-          >
-            Reset Game
-          </Button>
-        </>
-      )}
-
-      {status === "playing" && (
-        <div className="mt-3">
-          {isDescriber ? (
-            <Alert variant="info">
-              <strong>Your word:</strong> {myWord}
-            </Alert>
-          ) : (
-            <Form.Group as={Row} style={{ marginTop: "1rem" }}>
-              <Col sm={6}>
-                <Form.Control
-                  type="text"
-                  placeholder="Your Guess"
-                  value={guess}
-                  onChange={(e) => setGuess(e.target.value)}
-                />
-              </Col>
-              <Col sm={2}>
-                <Button onClick={handleGuessSubmit}>Guess!</Button>
-              </Col>
-            </Form.Group>
+      {/* Collapsible Guess Console */}
+      <div
+        className={`guess-console ${
+          isGuessConsoleMinimized ? "minimized" : ""
+        }`}
+      >
+        <div className="console-header" onClick={toggleGuessConsole}>
+          <h4>💬 Guesses</h4>
+          <button className="toggle-button">
+            {isGuessConsoleMinimized ? "📈" : "📉"}
+          </button>
+          {isGuessConsoleMinimized && guessLog.length > 0 && (
+            <span className="guess-count">({guessLog.length})</span>
           )}
-          <Button
-            variant="outline-primary"
-            onClick={handleNewGame}
-            className="mt-4"
-          >
-            New Game
-          </Button>
         </div>
-      )}
 
-      {/* Guess console at bottom-right */}
-      <div className="guess-console">
-        <h4>Guesses</h4>
-        {guessLog.map((logItem, idx) => {
-          if (logItem.correct) {
-            return (
-              <div key={idx} className="console-item console-correct">
-                <strong>Team {logItem.team}</strong> guessed “{logItem.guess}”
-                correctly!
-                {logItem.word && ` (Word: ${logItem.word})`}
+        {!isGuessConsoleMinimized && (
+          <div
+            className="console-content"
+            style={{ maxHeight: "300px", overflowY: "auto" }}
+          >
+            {guessLog.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  color: "#718096",
+                  fontStyle: "italic",
+                }}
+              >
+                No guesses yet...
               </div>
-            );
-          } else {
-            return (
-              <div key={idx} className="console-item console-incorrect">
-                Guessed “{logItem.guess}” — Incorrect.
-              </div>
-            );
-          }
-        })}
+            ) : (
+              guessLog.map((logItem, idx) => {
+                if (logItem.correct) {
+                  return (
+                    <div key={idx} className="console-item console-correct">
+                      <strong>🎉 Team {logItem.team}</strong> guessed &quot;
+                      {logItem.guess}
+                      &quot; correctly!
+                      {logItem.word && ` (Word: ${logItem.word})`}
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div key={idx} className="console-item console-incorrect">
+                      ❌ &quot;{logItem.guess}&quot; — Incorrect
+                    </div>
+                  );
+                }
+              })
+            )}
+          </div>
+        )}
       </div>
     </Container>
   );

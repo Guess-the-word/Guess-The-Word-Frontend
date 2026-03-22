@@ -1,0 +1,37 @@
+.guess-console {
+  border-radius: 15px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+
+.console-messages {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.console-entry {
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.correct-guess {
+  background-color: rgba(46, 204, 113, 0.1);
+}
+
+.incorrect-guess {
+  background-color: rgba(231, 76, 60, 0.1);
+}
+
+.player-name {
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.guess-text {
+  flex-grow: 1;
+  margin: 0 8px;
+}

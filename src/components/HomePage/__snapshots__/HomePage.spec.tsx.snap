@@ -6,44 +6,133 @@ exports[`The HomePage Suite should match the snapshot 1`] = `
     class="mainContainer container-fluid"
   >
     <div
-      class="justify-content-center logoRow row"
+      class="hero-section"
     >
-      <img
-        alt="service logo"
-        class="logoImage"
-        src="simple_logo.svg"
-      />
+      <h1
+        class="hero-title"
+      >
+        🎮 Guess The Word
+      </h1>
+      <p
+        class="hero-subtitle"
+      >
+        The Ultimate Multiplayer Word Guessing Game
+      </p>
+      <p
+        class="hero-description"
+      >
+        Join friends in an exciting word guessing adventure! One player describes, others guess, and everyone has fun. Create or join a room to start playing instantly with video chat support.
+      </p>
     </div>
     <div
-      class="justify-content-center inputRow row"
+      class="join-room-card"
+    >
+      <h2
+        class="card-title"
+      >
+        🚀 Join a Room
+      </h2>
+      <div
+        class="error-container"
+      />
+      <input
+        class="room-input"
+        placeholder="Enter Room Name (4-10 characters)"
+        type="text"
+        value=""
+      />
+      <input
+        class="room-input name-input"
+        maxlength="24"
+        placeholder="Display Name (optional)"
+        type="text"
+        value=""
+      />
+      <button
+        class="submit-button "
+        disabled=""
+      >
+        🎯 Join Game
+      </button>
+    </div>
+    <div
+      class="features-section"
     >
       <div
-        class="container"
+        class="feature-card"
       >
         <div
-          style="height: 3rem; width: 26rem; margin: 1rem auto;"
-        />
-        <div>
-          <div
-            class="form-group"
-          >
-            <div
-              class="col-sm-4 offset-sm-4"
-            >
-              <input
-                class="mt-3 form-control"
-                placeholder="Enter Room Name"
-                type="text"
-              />
-            </div>
-          </div>
-          <button
-            class="btn btn-primary"
-            type="button"
-          >
-            Submit
-          </button>
+          class="feature-icon"
+        >
+          🎥
         </div>
+        <h3
+          class="feature-title"
+        >
+          Video Chat
+        </h3>
+        <p
+          class="feature-description"
+        >
+          See and interact with your friends through integrated video chat while playing
+        </p>
+      </div>
+      <div
+        class="feature-card"
+      >
+        <div
+          class="feature-icon"
+        >
+          👥
+        </div>
+        <h3
+          class="feature-title"
+        >
+          Team Play
+        </h3>
+        <p
+          class="feature-description"
+        >
+          Form teams and compete against each other in exciting word guessing challenges
+        </p>
+      </div>
+      <div
+        class="feature-card"
+      >
+        <div
+          class="feature-icon"
+        >
+          ⚡
+        </div>
+        <h3
+          class="feature-title"
+        >
+          Real-time
+        </h3>
+        <p
+          class="feature-description"
+        >
+          Instant synchronization and live updates for seamless multiplayer experience
+        </p>
+      </div>
+      <div
+        class="feature-card"
+      >
+        <div
+          class="feature-icon"
+        >
+          🏆
+        </div>
+        <h3
+          class="feature-title"
+        >
+          Scoring
+        </h3>
+        <p
+          class="feature-description"
+        >
+          Track your team's progress with live scoring and competitive gameplay
+        </p>
       </div>
     </div>
   </div>

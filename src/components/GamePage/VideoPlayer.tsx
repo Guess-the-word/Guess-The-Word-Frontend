@@ -9,7 +9,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (videoRef.current && stream) {
+    if (videoRef.current) {
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
@@ -20,7 +20,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ stream, muted }) => {
       muted={muted}
       autoPlay
       playsInline
-      style={{ width: "100%", borderRadius: "8px", backgroundColor: "#000" }}
+      className={stream ? "video-element has-stream" : "video-element"}
     />
   );
 };

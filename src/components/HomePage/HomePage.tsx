@@ -8,26 +8,27 @@ import "./HomePage.css";
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const [roomName, setRoomName] = useState("");
+  const [playerName, setPlayerName] = useState(
+    () => localStorage.getItem("guessTheWordPlayerName") || ""
+  );
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isJoining, setIsJoining] = useState(false);
 
   useEffect(() => {
-    // Listen for successful room join
-    socket.on(
-      "roomUpdate",
-      ({ roomName }: { roomName: string; players: string[] }) => {
-        setIsJoining(false);
-        navigate(`/room/${roomName}`);
-      }
-    );
+    const handleRoomUpdate = ({ roomName }: { roomName: string }) => {
+      setIsJoining(false);
+      navigate(`/room/${roomName}`);
+    };
+
+    socket.on("roomUpdate", handleRoomUpdate);
 
     return () => {
-      socket.off("roomUpdate");
+      socket.off("roomUpdate", handleRoomUpdate);
     };
   }, [navigate]);
 
-  const validateInput = (inputSize: number): boolean => {
+  const validateInput = (inputSize: number, value = roomName): boolean => {
     const alphanumericRegex = /^[0-9a-zA-Z]+$/;
 
     if (inputSize < 4 || inputSize > 10) {
@@ -36,9 +37,15 @@ export const HomePage: React.FC = () => {
       return false;
     }
 
-    if (!alphanumericRegex.test(roomName)) {
+    if (!alphanumericRegex.test(value)) {
       setShowError(true);
       setErrorMessage("Room name should only include letters and numbers");
+      return false;
+    }
+
+    if (playerName.trim().length > 24) {
+      setShowError(true);
+      setErrorMessage("Display name should be 24 characters or fewer");
       return false;
     }
 
@@ -49,7 +56,15 @@ export const HomePage: React.FC = () => {
   const handleSubmit = (): void => {
     if (validateInput(roomName.length)) {
       setIsJoining(true);
-      socket.emit("joinRoom", { roomName });
+      const nickname = playerName.trim();
+
+      if (nickname) {
+        localStorage.setItem("guessTheWordPlayerName", nickname);
+      } else {
+        localStorage.removeItem("guessTheWordPlayerName");
+      }
+
+      socket.emit("joinRoom", { roomName, nickname });
     }
   };
 
@@ -60,9 +75,23 @@ export const HomePage: React.FC = () => {
     setRoomName(value);
 
     if (value.length > 0) {
-      validateInput(value.length);
+      validateInput(value.length, value);
     } else {
       setShowError(false);
+    }
+  };
+
+  const handlePlayerNameChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ): void => {
+    const value = e.target.value;
+    setPlayerName(value);
+
+    if (value.trim().length <= 24) {
+      setShowError(false);
+    } else {
+      setShowError(true);
+      setErrorMessage("Display name should be 24 characters or fewer");
     }
   };
 
@@ -103,6 +132,17 @@ export const HomePage: React.FC = () => {
           onChange={handleRoomNameChange}
           onKeyPress={handleKeyPress}
           disabled={isJoining}
+        />
+
+        <input
+          type="text"
+          className="room-input name-input"
+          placeholder="Display Name (optional)"
+          value={playerName}
+          onChange={handlePlayerNameChange}
+          onKeyPress={handleKeyPress}
+          disabled={isJoining}
+          maxLength={24}
         />
 
         <button

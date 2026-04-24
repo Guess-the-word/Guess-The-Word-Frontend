@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button, Form, Container, Row, Col } from "react-bootstrap";
 import { socket } from "../../services/socket";
@@ -8,9 +8,11 @@ import "./GamePage.css";
 interface TeamMap {
   [teamId: string]: string[];
 }
+
 interface ScoreMap {
   [teamId: string]: number;
 }
+
 interface NicknameMap {
   [socketId: string]: string;
 }
@@ -18,14 +20,19 @@ interface NicknameMap {
 interface GuessLogEntry {
   guess: string;
   correct: boolean;
+  skipped?: boolean;
   team?: number;
   word?: string;
 }
+
+const TEAM_IDS = ["1", "2"];
+const GAME_DURATION = 60;
 
 export const GamePage: React.FC = () => {
   const { roomName } = useParams();
   const navigate = useNavigate();
 
+  const [socketId, setSocketId] = useState(socket.id || "");
   const [players, setPlayers] = useState<string[]>([]);
   const [teams, setTeams] = useState<TeamMap>({});
   const [status, setStatus] = useState<"waiting" | "playing">("waiting");
@@ -36,52 +43,126 @@ export const GamePage: React.FC = () => {
   const [guess, setGuess] = useState<string>("");
   const [score, setScore] = useState<ScoreMap>({});
   const [guessLog, setGuessLog] = useState<GuessLogEntry[]>([]);
-  const [nicknames, setNicknames] = useState<NicknameMap>({}); // NEW: silly names
+  const [nicknames, setNicknames] = useState<NicknameMap>({});
+  const [notice, setNotice] = useState("");
+  const [inviteCopied, setInviteCopied] = useState(false);
   const [isGuessConsoleMinimized, setIsGuessConsoleMinimized] = useState(false);
 
-  const isDescriber = socket.id === describer;
+  const isDescriber = socketId === describer;
+  const myTeam = useMemo(() => {
+    return (
+      Object.entries(teams).find(([, members]) =>
+        members.includes(socketId)
+      )?.[0] || null
+    );
+  }, [teams, socketId]);
+
+  const canStartGame =
+    status === "waiting" &&
+    players.length >= 2 &&
+    TEAM_IDS.every((teamId) => (teams[teamId] || []).length > 0);
+
+  const lobbyHint = useMemo(() => {
+    if (status === "playing") return "";
+    if (players.length < 2) return "Waiting for one more player.";
+    if (!TEAM_IDS.every((teamId) => (teams[teamId] || []).length > 0)) {
+      return "Each team needs a player.";
+    }
+    return "Ready to start.";
+  }, [players.length, status, teams]);
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0 });
+  }, [roomName]);
+
+  useEffect(() => {
+    const syncSocketId = (): void => setSocketId(socket.id || "");
+
+    syncSocketId();
+    socket.on("connect", syncSocketId);
+
+    return () => {
+      socket.off("connect", syncSocketId);
+    };
+  }, []);
 
   useEffect(() => {
     if (!roomName) return;
-    socket.emit("joinRoom", { roomName });
 
-    socket.on("roomUpdate", (data) => {
+    const nickname = localStorage.getItem("guessTheWordPlayerName") || "";
+    socket.emit("joinRoom", { roomName, nickname });
+
+    const handleRoomUpdate = (data: {
+      players: string[];
+      teams: TeamMap;
+      status: "waiting" | "playing";
+      score: ScoreMap;
+      currentTeam: number;
+      describer?: string | null;
+      timeLeft?: number;
+      nicknames?: NicknameMap;
+    }): void => {
       setPlayers(data.players);
       setTeams(data.teams);
       setStatus(data.status);
       setScore(data.score);
       setCurrentTeam(data.currentTeam);
-      // store nicknames
+      setDescriber(data.describer || null);
+      setTimeLeft(data.timeLeft || 0);
       setNicknames(data.nicknames || {});
-    });
 
-    socket.on("gameStarted", (data) => {
+      if (data.status === "waiting") {
+        setMyWord("");
+      }
+    };
+
+    const handleGameStarted = (data: {
+      status: "playing";
+      currentTeam: number;
+      describer: string | null;
+      score: ScoreMap;
+      timeLeft?: number;
+    }): void => {
       setStatus(data.status);
       setCurrentTeam(data.currentTeam);
       setDescriber(data.describer);
       setScore(data.score);
+      setTimeLeft(data.timeLeft || GAME_DURATION);
       setMyWord("");
-    });
+      setNotice("");
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    };
 
-    socket.on("yourWord", ({ word }) => {
-      setMyWord(word);
-    });
-
-    socket.on("timerUpdate", ({ timeLeft }) => {
-      setTimeLeft(timeLeft);
-    });
-
-    socket.on("timeUp", () => {
-      setGuessLog((prev) => [...prev, { guess: "Time's up!", correct: false }]);
-    });
-
-    socket.on("nextTurn", (data) => {
+    const handleNextTurn = (data: {
+      currentTeam: number;
+      describer: string | null;
+      score: ScoreMap;
+      timeLeft?: number;
+    }): void => {
       setCurrentTeam(data.currentTeam);
       setDescriber(data.describer);
       setScore(data.score);
+      setTimeLeft(data.timeLeft || GAME_DURATION);
       setMyWord("");
-    });
+      setNotice("");
+      window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    };
 
+    socket.on("roomUpdate", handleRoomUpdate);
+    socket.on("gameStarted", handleGameStarted);
+    socket.on("yourWord", ({ word }: { word: string }) => {
+      setMyWord(word);
+    });
+    socket.on("timerUpdate", ({ timeLeft }: { timeLeft: number }) => {
+      setTimeLeft(timeLeft);
+    });
+    socket.on("timeUp", () => {
+      setGuessLog((prev) => [
+        ...prev,
+        { guess: "Time expired", correct: false, skipped: true },
+      ]);
+    });
+    socket.on("nextTurn", handleNextTurn);
     socket.on("guessResult", (data) => {
       if (data.correct) {
         setGuessLog((prev) => [
@@ -98,36 +179,94 @@ export const GamePage: React.FC = () => {
         setGuessLog((prev) => [...prev, { guess: data.guess, correct: false }]);
       }
     });
+    socket.on("wordPassed", (data: { team: number; word: string }) => {
+      setGuessLog((prev) => [
+        ...prev,
+        {
+          guess: "Passed",
+          correct: false,
+          skipped: true,
+          team: data.team,
+          word: data.word,
+        },
+      ]);
+    });
+    socket.on("startRejected", ({ reason }: { reason: string }) => {
+      setNotice(reason);
+    });
+    socket.on("actionRejected", ({ reason }: { reason: string }) => {
+      setNotice(reason);
+    });
+    socket.on("gamePaused", ({ reason }: { reason: string }) => {
+      setNotice(reason);
+      setStatus("waiting");
+      setMyWord("");
+    });
 
     return () => {
-      socket.off("roomUpdate");
-      socket.off("gameStarted");
+      socket.off("roomUpdate", handleRoomUpdate);
+      socket.off("gameStarted", handleGameStarted);
       socket.off("yourWord");
       socket.off("timerUpdate");
       socket.off("timeUp");
-      socket.off("nextTurn");
+      socket.off("nextTurn", handleNextTurn);
       socket.off("guessResult");
+      socket.off("wordPassed");
+      socket.off("startRejected");
+      socket.off("actionRejected");
+      socket.off("gamePaused");
     };
   }, [roomName]);
 
   const handleStartGame = (): void => {
+    if (!canStartGame) {
+      setNotice(lobbyHint);
+      return;
+    }
+
     socket.emit("startGame", { roomName });
   };
 
   const handleGuessSubmit = (): void => {
-    if (!guess) return;
-    socket.emit("guessWord", { roomName, guess });
+    const trimmedGuess = guess.trim();
+    if (!trimmedGuess) return;
+
+    socket.emit("guessWord", { roomName, guess: trimmedGuess });
     setGuess("");
+  };
+
+  const handleCorrectWord = (): void => {
+    socket.emit("correctWord", { roomName });
+  };
+
+  const handleSkipWord = (): void => {
+    socket.emit("skipWord", { roomName });
   };
 
   const handleNewGame = (): void => {
     socket.emit("resetGame", { roomName });
     setGuessLog([]);
+    setNotice("");
   };
 
   const handleLeaveGame = (): void => {
     socket.emit("leaveRoom", { roomName });
     navigate("/");
+  };
+
+  const handleSwitchTeam = (teamId: string): void => {
+    if (status !== "waiting" || myTeam === teamId) return;
+    socket.emit("switchTeam", { roomName, newTeam: teamId });
+  };
+
+  const handleCopyInvite = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setInviteCopied(true);
+      window.setTimeout(() => setInviteCopied(false), 1800);
+    } catch {
+      setNotice("Could not copy the invite link.");
+    }
   };
 
   const toggleGuessConsole = (): void => {
@@ -138,207 +277,213 @@ export const GamePage: React.FC = () => {
     return nicknames[id] || id;
   };
 
-  return (
-    <Container fluid>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "2rem",
-        }}
-      >
-        <h2 style={{ margin: 0 }}>🎮 {roomName}</h2>
-        <Button
-          variant="outline-light"
-          onClick={handleLeaveGame}
-          style={{
-            background: "rgba(255, 255, 255, 0.1)",
-            border: "2px solid rgba(255, 255, 255, 0.3)",
-            color: "white",
-            fontWeight: "600",
-            padding: "0.5rem 1.5rem",
-            borderRadius: "12px",
-            transition: "all 0.3s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "rgba(255, 255, 255, 0.2)";
-            e.currentTarget.style.transform = "translateY(-2px)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
-            e.currentTarget.style.transform = "translateY(0)";
-          }}
-        >
-          🚪 Leave Game
-        </Button>
-      </div>
+  const describerName = describer ? getName(describer) : "Waiting";
 
-      <div className="game-info">
+  return (
+    <Container fluid className="game-page">
+      <header className="room-header">
+        <div>
+          <span className="room-eyebrow">Room</span>
+          <h2>{roomName}</h2>
+        </div>
+        <div className="room-actions">
+          <Button className="secondary-action" onClick={handleCopyInvite}>
+            {inviteCopied ? "Copied" : "Copy Invite"}
+          </Button>
+          <Button className="leave-action" onClick={handleLeaveGame}>
+            Leave Game
+          </Button>
+        </div>
+      </header>
+
+      <section className={`play-hud ${status}`}>
         <div className="status-grid">
           <div className="status-item">
             <div className="status-label">Status</div>
             <div className="status-value">{status}</div>
           </div>
           <div className="status-item">
-            <div className="status-label">Current Team</div>
+            <div className="status-label">Team Up</div>
             <div className="status-value">Team {currentTeam}</div>
           </div>
-          <div className="status-item">
-            <div className="status-label">Time Left</div>
+          <div className="status-item timer-item">
+            <div className="status-label">Timer</div>
             <div className="status-value">{timeLeft}s</div>
           </div>
           <div className="status-item">
-            <div className="status-label">Players Online</div>
-            <div className="status-value">{players.length}</div>
+            <div className="status-label">Describer</div>
+            <div className="status-value">{describerName}</div>
           </div>
         </div>
-      </div>
 
-      <Row>
+        <div className="hud-action">
+          {status === "waiting" ? (
+            <>
+              <div className="lobby-message">{notice || lobbyHint}</div>
+              <div className="lobby-actions">
+                <Button
+                  className="primary-action"
+                  onClick={handleStartGame}
+                  disabled={!canStartGame}
+                >
+                  Start Game
+                </Button>
+                <Button className="secondary-action" onClick={handleNewGame}>
+                  Reset
+                </Button>
+              </div>
+            </>
+          ) : isDescriber ? (
+            <div className="word-control">
+              <div>
+                <span className="word-label">Your word</span>
+                <strong>{myWord || "Loading..."}</strong>
+              </div>
+              <div className="word-actions">
+                <Button className="primary-action" onClick={handleCorrectWord}>
+                  Correct
+                </Button>
+                <Button className="secondary-action" onClick={handleSkipWord}>
+                  Pass
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="guess-control">
+              <Form.Control
+                type="text"
+                placeholder="Enter a guess"
+                value={guess}
+                onChange={(e) => setGuess(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleGuessSubmit()}
+              />
+              <Button className="primary-action" onClick={handleGuessSubmit}>
+                Guess
+              </Button>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <Row className="game-layout">
         <Col lg={8}>
-          <div className="videoChatContainer">
-            <VideoChat roomName={roomName || ""} players={players} />
-          </div>
-          {status === "waiting" && (
-            <div className="guess-input-container">
-              <div style={{ textAlign: "center" }}>
-                <Button onClick={handleStartGame} className="me-3">
-                  🚀 Start Game
-                </Button>
-                <Button variant="outline-primary" onClick={handleNewGame}>
-                  🔄 Reset Game
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {status === "playing" && (
-            <div className="guess-input-container">
-              {isDescriber ? (
-                <div className="word-display">
-                  🎯 Your word: <strong>{myWord}</strong>
-                </div>
-              ) : (
-                <Row className="align-items-center">
-                  <Col md={8}>
-                    <Form.Control
-                      type="text"
-                      placeholder="Enter your guess..."
-                      value={guess}
-                      onChange={(e) => setGuess(e.target.value)}
-                      onKeyPress={(e) =>
-                        e.key === "Enter" && handleGuessSubmit()
-                      }
-                      style={{ fontSize: "1.1rem", padding: "0.75rem" }}
-                    />
-                  </Col>
-                  <Col md={4}>
-                    <Button
-                      onClick={handleGuessSubmit}
-                      style={{ width: "100%" }}
-                    >
-                      🔮 Guess!
-                    </Button>
-                  </Col>
-                </Row>
-              )}
-              <div style={{ textAlign: "center", marginTop: "1rem" }}>
-                <Button variant="outline-primary" onClick={handleNewGame}>
-                  🎲 New Game
-                </Button>
-              </div>
-            </div>
-          )}
+          <VideoChat
+            roomName={roomName || ""}
+            players={players}
+            nicknames={nicknames}
+          />
         </Col>
 
         <Col lg={4}>
           <div className="game-panel players-box">
-            <h3>👥 Players</h3>
-            {players.map((p) => (
-              <div key={p} className="player-item">
-                <span>{getName(p)}</span>
-                {p === describer && (
-                  <span className="describer-badge">Describer</span>
-                )}
-              </div>
-            ))}
+            <h3>Players</h3>
+            {players.length === 0 ? (
+              <div className="empty-state">Waiting...</div>
+            ) : (
+              players.map((p) => (
+                <div key={p} className="player-item">
+                  <span>{getName(p)}</span>
+                  {p === describer && (
+                    <span className="describer-badge">Describer</span>
+                  )}
+                </div>
+              ))
+            )}
           </div>
 
           <div className="game-panel teams-box">
-            <h3>🏆 Teams</h3>
-            {Object.entries(teams).map(([teamId, members]) => (
-              <div key={teamId} className="team-container">
-                <div className="team-header">
-                  <span className="team-name">Team {teamId}</span>
-                  <span className="team-score">
-                    Score: {score[teamId] || 0}
-                  </span>
+            <h3>Teams</h3>
+            {TEAM_IDS.map((teamId) => {
+              const members = teams[teamId] || [];
+
+              return (
+                <div
+                  key={teamId}
+                  className={`team-container ${
+                    myTeam === teamId ? "is-mine" : ""
+                  }`}
+                >
+                  <div className="team-header">
+                    <span className="team-name">Team {teamId}</span>
+                    <span className="team-score">
+                      Score: {score[teamId] || 0}
+                    </span>
+                  </div>
+                  <ul className="team-members">
+                    {members.length === 0 ? (
+                      <li className="empty-state">Open seat</li>
+                    ) : (
+                      members.map((m) => <li key={m}>{getName(m)}</li>)
+                    )}
+                  </ul>
+                  {status === "waiting" && (
+                    <Button
+                      size="sm"
+                      className="team-join-button"
+                      disabled={myTeam === teamId}
+                      onClick={() => handleSwitchTeam(teamId)}
+                    >
+                      {myTeam === teamId ? "Your Team" : "Join Team"}
+                    </Button>
+                  )}
                 </div>
-                <ul className="team-members">
-                  {members.map((m) => (
-                    <li key={m}>{getName(m)}</li>
-                  ))}
-                </ul>
+              );
+            })}
+          </div>
+
+          <div
+            className={`game-panel guess-console ${
+              isGuessConsoleMinimized ? "minimized" : ""
+            }`}
+          >
+            <div className="console-header">
+              <h3>Guesses</h3>
+              <button
+                type="button"
+                className="toggle-button"
+                onClick={toggleGuessConsole}
+              >
+                {isGuessConsoleMinimized ? "Show" : "Hide"}
+              </button>
+            </div>
+
+            {!isGuessConsoleMinimized && (
+              <div className="console-content">
+                {guessLog.length === 0 ? (
+                  <div className="empty-state">No guesses yet...</div>
+                ) : (
+                  guessLog.map((logItem, idx) => {
+                    if (logItem.correct) {
+                      return (
+                        <div key={idx} className="console-item console-correct">
+                          <strong>Team {logItem.team}</strong> got{" "}
+                          {logItem.guess}.
+                        </div>
+                      );
+                    }
+
+                    if (logItem.skipped) {
+                      return (
+                        <div key={idx} className="console-item console-pass">
+                          {logItem.team
+                            ? `Team ${logItem.team} passed ${logItem.word}.`
+                            : logItem.guess}
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div key={idx} className="console-item console-incorrect">
+                        {logItem.guess} missed.
+                      </div>
+                    );
+                  })
+                )}
               </div>
-            ))}
+            )}
           </div>
         </Col>
       </Row>
-
-      <div
-        className={`guess-console ${
-          isGuessConsoleMinimized ? "minimized" : ""
-        }`}
-      >
-        <div className="console-header" onClick={toggleGuessConsole}>
-          <h4>💬 Guesses</h4>
-          <button className="toggle-button">
-            {isGuessConsoleMinimized ? "📈" : "📉"}
-          </button>
-          {isGuessConsoleMinimized && guessLog.length > 0 && (
-            <span className="guess-count">({guessLog.length})</span>
-          )}
-        </div>
-
-        {!isGuessConsoleMinimized && (
-          <div
-            className="console-content"
-            style={{ maxHeight: "300px", overflowY: "auto" }}
-          >
-            {guessLog.length === 0 ? (
-              <div
-                style={{
-                  textAlign: "center",
-                  color: "#718096",
-                  fontStyle: "italic",
-                }}
-              >
-                No guesses yet...
-              </div>
-            ) : (
-              guessLog.map((logItem, idx) => {
-                if (logItem.correct) {
-                  return (
-                    <div key={idx} className="console-item console-correct">
-                      <strong>🎉 Team {logItem.team}</strong> guessed &quot;
-                      {logItem.guess}
-                      &quot; correctly!
-                      {logItem.word && ` (Word: ${logItem.word})`}
-                    </div>
-                  );
-                } else {
-                  return (
-                    <div key={idx} className="console-item console-incorrect">
-                      ❌ &quot;{logItem.guess}&quot; — Incorrect
-                    </div>
-                  );
-                }
-              })
-            )}
-          </div>
-        )}
-      </div>
     </Container>
   );
 };

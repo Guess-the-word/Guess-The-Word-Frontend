@@ -1,0 +1,32 @@
+.home-container {
+  padding-top: 5rem;
+}
+
+.home-card {
+  border-radius: 15px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+  padding: 2rem;
+  transition: transform 0.3s ease;
+}
+
+.home-card:hover {
+  transform: translateY(-5px);
+}
+
+h1 {
+  color: #6c5ce7;
+  font-weight: bold;
+}
+
+.btn-primary {
+  background-color: #6c5ce7;
+  border-color: #6c5ce7;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background-color: #5649c0;
+  border-color: #5649c0;
+  transform: scale(1.05);
+}

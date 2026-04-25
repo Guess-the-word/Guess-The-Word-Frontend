@@ -1,0 +1,28 @@
+.teams-display {
+  border-radius: 15px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+
+.team-section {
+  padding: 10px;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.team-1 {
+  background-color: rgba(108, 92, 231, 0.1);
+}
+
+.team-2 {
+  background-color: rgba(46, 204, 113, 0.1);
+}
+
+.current-team {
+  border: 2px solid #ffc107;
+  transform: scale(1.02);
+}
+
+.describer {
+  font-weight: bold;
+}

@@ -1,0 +1,10 @@
+.players-list {
+  border-radius: 15px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+
+.describer {
+  font-weight: bold;
+  background-color: rgba(108, 92, 231, 0.2);
+}

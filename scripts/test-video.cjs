@@ -133,6 +133,7 @@ async function trackCount(page, name, kind, count) {
     await video(b, "Alex").evaluate((element) => {
       window.beforeReconnect = element.srcObject;
     });
+    await b.getByText("Audio & video help", { exact: true }).click();
     await button(b, "Reconnect video").click();
     await b.waitForFunction(() => {
       const element = document.querySelector(
@@ -154,13 +155,14 @@ async function trackCount(page, name, kind, count) {
     });
     await button(a, "Start match").click();
     await a.getByText("Round 1 of 3", { exact: false }).first().waitFor();
+    await button(a, "Correct · +1 to Team 1").waitFor();
     await button(a, "Correct · +1 to Team 1").click();
     await a.getByText("Team 2, you’re up.", { exact: true }).waitFor();
-    await a.waitForFunction(
-      () =>
-        Number(document.querySelector('[role="timer"] strong')?.textContent) <
-        59
-    );
+    await a.waitForFunction(() => {
+      const timer = document.querySelector('[role="timer"]');
+      return timer?.getAttribute("aria-label")?.includes("seconds remaining") &&
+        parseInt(timer.querySelector("strong")?.textContent || "", 10) < 59;
+    });
     assert.equal(
       await video(c, "Alex").evaluate(
         (element) => element.srcObject === window.beforeMatch

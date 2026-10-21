@@ -209,3 +209,90 @@ test("cancellation explanation is visible in the lobby", () => {
   show();
   expect(screen.getByRole("status")).toHaveTextContent(room.notice);
 });
+
+test("countdown shows the role without exposing a word or accepting answers", () => {
+  Object.assign(room, {
+    status: "playing",
+    phase: "countdown",
+    phaseSeconds: 3,
+    describer: "a",
+    yourWord: null,
+    timeLeft: 60,
+  });
+  show();
+  expect(screen.getByText("Your turn to describe")).toBeInTheDocument();
+  expect(screen.getByRole("timer")).toHaveAttribute(
+    "aria-label",
+    "Starting in 3"
+  );
+  expect(
+    screen.queryByRole("button", { name: /Correct/ })
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole("textbox", { name: "Your guess" })
+  ).not.toBeInTheDocument();
+});
+
+test.each(["correct", "passed", "expired"] as const)(
+  "%s reveals the word without leaving scoring controls active",
+  (outcome) => {
+    Object.assign(room, {
+      status: "playing",
+      phase: "reveal",
+      describer: "a",
+      yourWord: null,
+    });
+    room.history = [
+      {
+        round: 1,
+        team: "1",
+        outcome,
+        points: outcome === "correct" ? 1 : 0,
+        word: "banana peel",
+        describerName: "Alex",
+      },
+    ];
+    show("b");
+    expect(screen.getByRole("status")).toHaveTextContent("banana peel");
+    expect(screen.getByText("Team 2, you’re next.")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Correct/ })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("textbox", { name: "Your guess" })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("The match so far").closest("details")
+    ).not.toHaveAttribute("open");
+  }
+);
+
+test("the video room stays mounted through countdown, play, reveal, results and rematch", () => {
+  const view = show();
+  const video = screen.getByText("Video room");
+  const update = () =>
+    view.rerender(
+      <MemoryRouter
+        initialEntries={["/room/testroom"]}
+        future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+      >
+        <Routes>
+          <Route path="/room/:roomName" element={<GamePage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  for (const phase of ["countdown", "active", "reveal"] as const) {
+    room.status = "playing";
+    room.phase = phase;
+    room.phaseSeconds = 3;
+    update();
+    expect(screen.getByText("Video room")).toBe(video);
+  }
+  room.status = "finished";
+  room.winner = "draw";
+  update();
+  expect(screen.getByText("Video room")).toBe(video);
+  room.status = "waiting";
+  update();
+  expect(screen.getByText("Video room")).toBe(video);
+});

@@ -20,6 +20,7 @@ Open http://localhost:3000. The backend defaults to port 4000. `PORT` and `HOST`
 
 - First connected player hosts. The host chooses 3/5/7 rounds and 30/60/90 seconds per turn; defaults are 3 rounds and 60 seconds.
 - Each round contains Team 1's turn followed by Team 2's turn. A correct guess or the describer's Correct button awards the active team one point. Correct, Pass, and expiry each end the turn.
+- Each turn starts with a shared 3-second countdown. The secret stays hidden until the full guessing timer starts. Correct, Pass, and expiry reveal the word to everyone for 2.5 seconds before the next countdown (or final results). Answers are rejected during countdowns and reveals.
 - Any participating non-describer can submit a guess. Only the describer can mark Correct or Pass. Only the describer receives the active secret word.
 - Both teams need a player before starting. Teams and settings lock during play. Describers rotate within their team.
 - After the last turn, everyone sees the winner or draw, final scores, and round-by-round outcomes. The host's Play again returns everyone to the lobby with teams/settings retained and match data cleared.
@@ -45,7 +46,7 @@ node scripts/test-multiplayer.cjs
 
 The integration script uses the frontend's installed Socket.IO client and the compiled backend. It creates a temporary loopback server, checks real multiplayer messages, plays a full 2–1 match including a real 30-second timeout, verifies results across clients, and checks rematches, unauthorized actions, spectators, disconnects, host transfer, and fresh-room cleanup. It closes its server and clients afterward. It does not touch rooms in your running app.
 
-There are 28 backend tests and 44 frontend tests, plus the integration script. Existing Create React App/Babel and Browserslist dependency warnings may appear. The delayed Babel warning can keep the test process alive briefly; `--detectOpenHandles` identifies it as a dependency warning timer.
+There are 35 backend tests and 51 frontend tests, plus the integration script. Existing Create React App/Babel and Browserslist dependency warnings may appear. The delayed Babel warning can keep the test process alive briefly; `--detectOpenHandles` identifies it as a dependency warning timer.
 
 ## Manual acceptance test
 
@@ -63,10 +64,18 @@ There are 28 backend tests and 44 frontend tests, plus the integration script. E
 5. Choose Play again as host. Confirm everyone returns to the lobby, spectators get teams, scores/history clear, settings/teams remain, and the next match does not start automatically. Pass all six turns to check a 0–0 draw.
 6. During a new match, close or refresh any participant. The remaining players should see a canceled-match explanation and a clean lobby. If the host leaves, the earliest remaining player becomes host.
 7. Leave after results: results remain. Close every session and reuse the room name: defaults and a fresh room return.
-8. Check at a narrow mobile width and with keyboard navigation. Check camera and microphone permissions on your actual devices; the automated video checks use fake media devices.
+8. Check 320px, 390px, 430px, and landscape widths with keyboard navigation. During play, scores/timer stay pinned, video tiles form a horizontal strip, and history/teams are expandable. Expanding a video or changing the describer must preserve its playback. Check camera and microphone permissions on your actual devices; the automated video checks use fake media devices.
 
 Use separate browser profiles/browsers for independent saved names. Multiple Chrome incognito windows share the same incognito storage session until all are closed; the app still treats their live connections as separate players.
 
+
+## Mobile play
+
+The word/guess area and compact video controls stay together. Desktop shows friends beside the game; phones use a swipeable video strip with an expand button on each tile. The current describer is highlighted. Previous turns and detailed rosters are collapsed during play, and results expand the recap again. Animation respects reduced-motion settings.
+
+Deploy this frontend before the companion backend transition change. It falls back to the original active-turn display when connected to a backend without `phase`/`phaseSeconds`.
+
+Responsive browser checks are not a substitute for an actual phone test. Before calling mobile video verified, play a full match on iPhone Safari and Android Chrome over HTTPS, using separate devices/networks. Check permission denial, microphone-only/camera-only use, opening the keyboard, rotation, and switching away/returning.
 
 ## Video and microphone
 

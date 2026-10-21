@@ -15,6 +15,8 @@ export interface RoomState {
   teams: Record<Team, string[]>;
   waitingPlayers: string[];
   status: "waiting" | "playing" | "finished";
+  phase?: "countdown" | "active" | "reveal";
+  phaseSeconds?: number;
   settings: { rounds: number; turnSeconds: number };
   lobbyId: string;
   matchId: string | null;

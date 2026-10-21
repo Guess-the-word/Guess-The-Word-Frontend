@@ -199,3 +199,179 @@
     max-width: none;
   }
 }
+
+/* A compact, stable rail: expanding a tile changes layout, never its stream. */
+.video-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.video-toggle-button {
+  padding: 9px 4px;
+  font-size: 12px;
+}
+.video-toggle-button[aria-pressed="true"] {
+  background: #d7f7e9;
+  border-color: #75c4ab;
+  color: #155947;
+}
+.video-toggle-button[aria-pressed="false"] {
+  background: #f1f4f5;
+  color: #526176;
+  border-color: #dbe4e7;
+}
+.videoGrid {
+  display: flex;
+  overflow-x: auto;
+  gap: 10px;
+  padding: 4px 2px 10px;
+  margin-top: 10px;
+  scroll-snap-type: x proximity;
+}
+.videoSlot,
+.videoSlot:only-child {
+  flex: 0 0 142px;
+  width: 142px;
+  aspect-ratio: 4 / 3;
+  max-width: none;
+  scroll-snap-align: start;
+}
+.videoSlot.is-describing {
+  outline: 3px solid #20a880;
+  outline-offset: -3px;
+  order: -1;
+}
+.videoGrid.has-expanded {
+  flex-wrap: wrap;
+}
+.videoSlot.is-expanded {
+  flex: 1 0 100%;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  order: -2;
+}
+.video-placeholder {
+  padding: 20px 8px 30px;
+  gap: 2px;
+}
+.video-placeholder span {
+  font-size: 12px;
+}
+.video-placeholder small {
+  font-size: 10px;
+}
+.player-name {
+  bottom: 5px;
+  left: 5px;
+  max-width: calc(100% - 10px);
+  font-size: 10px;
+  padding: 3px 5px;
+}
+.video-expand {
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 3;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  color: white;
+  background: linear-gradient(225deg, #102f3ecc, transparent);
+  font-size: 23px;
+}
+.describing-tag {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  z-index: 1;
+  background: #17694f;
+  color: white;
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 9px;
+  font-weight: 800;
+}
+.video-settings {
+  margin-top: 4px;
+}
+.video-settings summary {
+  color: #526176;
+  font-size: 12px;
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.video-settings summary::before {
+  content: "+";
+  margin-right: 8px;
+  font-size: 18px;
+}
+.video-settings[open] summary::before {
+  content: "−";
+}
+.video-settings .video-help {
+  margin: 8px 0;
+}
+.video-reconnect {
+  min-height: 44px;
+}
+@media (max-width: 760px) {
+  .videoChatContainer {
+    padding: 14px;
+  }
+  .video-toolbar p {
+    display: none;
+  }
+  .video-toolbar h3 {
+    margin: 0;
+    font-size: 14px;
+  }
+  .video-player-count {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+  .video-controls {
+    margin: 10px 0 0;
+  }
+  .video-settings summary {
+    min-height: 32px;
+  }
+}
+
+@media (min-width: 761px) {
+  .videoGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    overflow: visible;
+  }
+  .videoSlot,
+  .videoSlot:only-child {
+    width: 100%;
+  }
+  .videoSlot.is-expanded {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 760px) {
+  .videoGrid {
+    scrollbar-width: thin;
+  }
+  .video-settings summary {
+    min-height: 44px;
+  }
+  .videoGrid::-webkit-scrollbar {
+    height: 4px;
+  }
+}
+
+.video-play-button {
+  top: auto;
+  right: 5px;
+  bottom: 28px;
+  z-index: 4;
+  max-width: calc(100% - 10px);
+  min-height: 44px;
+  padding: 6px 8px;
+  font-size: 12px;
+}

@@ -5,7 +5,7 @@ const { createGameServer } = require('../../Guess-The-Word-Backend/dist/server')
 const server = createGameServer();
 const clients = [];
 let action = 0;
-const waitState = (client, predicate, timeout = 3000) => {
+const waitState = (client, predicate, timeout = 8000) => {
   if (client.state && predicate(client.state)) return Promise.resolve(client.state);
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => { client.off('roomUpdate', listener); reject(new Error('State update timed out')); }, timeout);
@@ -65,22 +65,28 @@ async function connect(url, nickname, roomName = 'network1') {
     a.emit('webrtc-signal', { target: b.id, callerId: 'forged', signal: { type: 'offer', sdp: 'test-only' } });
     assert.deepEqual(await relay, { callerId: a.id, signal: { type: 'offer', sdp: 'test-only' } });
     await rejected(a, 'skipWord', { matchId: null });
+    await waitState(a, state => state.phase === 'active');
+    await waitState(b, state => state.phase === 'active');
     await accepted(b, 'guessWord', { guess: 'this is wrong' });
     assert.equal(b.state.turnId, 0);
     const oldTurn = { matchId: a.state.matchId, turnId: 0, actionId: 'duplicate' };
     await accepted(b, 'guessWord', { ...oldTurn, guess: a.state.yourWord.toUpperCase() });
-    await waitState(a, state => state.turnId === 1);
+    await waitState(a, state => state.phase === 'reveal');
+    assert.equal(a.state.history[0].outcome, 'correct');
+    assert.equal(a.state.yourWord, null);
+    await rejected(a, 'correctWord');
+    await waitState(a, state => state.turnId === 1 && state.phase === 'active');
     await rejected(a, 'correctWord', oldTurn);
     await accepted(b, 'skipWord');
-    await waitState(a, state => state.turnId === 2);
+    await waitState(a, state => state.turnId === 2 && state.phase === 'active');
     await accepted(a, 'skipWord');
-    await waitState(b, state => state.turnId === 3);
+    await waitState(b, state => state.turnId === 3 && state.phase === 'active');
     await accepted(b, 'correctWord');
-    await waitState(a, state => state.turnId === 4);
+    await waitState(a, state => state.turnId === 4 && state.phase === 'active');
     await accepted(a, 'correctWord');
     console.log('PASS: network authorization, same-name players, private words, spectators, duplicate and stale actions');
     console.log('Waiting for the final 30-second turn to expire…');
-    await waitState(a, state => state.status === 'finished', 35000);
+    await waitState(a, state => state.status === 'finished', 40000);
     await waitState(b, state => state.status === 'finished');
     await waitState(c, state => state.status === 'finished');
     for (const client of [a, b, c]) {

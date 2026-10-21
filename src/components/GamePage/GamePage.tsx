@@ -69,6 +69,8 @@ export const GamePage: React.FC = () => {
   const host = room.hostId === playerId;
   const waiting = room.waitingPlayers.includes(playerId);
   const myTeam = TEAMS.find((team) => room.teams[team].includes(playerId));
+  const phase = room.phase || "active";
+  const lastTurn = room.history[room.history.length - 1];
   const describing = room.status === "playing" && room.describer === playerId;
   const ready = TEAMS.every((team) => room.teams[team].length > 0);
   const name = (id: string) => {
@@ -102,8 +104,54 @@ export const GamePage: React.FC = () => {
   };
 
   return (
-    <main className="game-page">
+    <main className={`game-page is-${room.status}`}>
       {header}
+      {room.status === "playing" && (
+        <div className="live-scoreboard" aria-label="Live scoreboard">
+          {TEAMS.map((team) => (
+            <div
+              key={team}
+              className={`live-team team-${team} ${
+                room.currentTeam === team ? "is-current" : ""
+              }`}
+            >
+              <span>
+                Team {team}
+                {myTeam === team && <small> · You</small>}
+              </span>
+              <strong key={room.score[team]}>{room.score[team]}</strong>
+            </div>
+          ))}
+          <div
+            className={`live-clock ${
+              phase === "active" && room.timeLeft <= 10 ? "urgent" : ""
+            }`}
+            role="timer"
+            aria-label={
+              phase === "active"
+                ? `${room.timeLeft} seconds remaining`
+                : phase === "countdown"
+                ? `Starting in ${room.phaseSeconds}`
+                : "Word reveal"
+            }
+          >
+            <strong>
+              {phase === "active"
+                ? `${room.timeLeft}s`
+                : phase === "countdown"
+                ? room.phaseSeconds
+                : "✓"}
+            </strong>
+            <span>
+              {phase === "active"
+                ? `Round ${room.round}/${room.settings.rounds}`
+                : phase === "countdown"
+                ? "Get ready"
+                : "Turn complete"}
+            </span>
+          </div>
+        </div>
+      )}
       <div className="room-meta">
         <span className={`phase-pill ${room.status}`}>
           {room.status === "waiting"
@@ -240,20 +288,19 @@ export const GamePage: React.FC = () => {
                   <span className="section-eyebrow">
                     Round {room.round} of {room.settings.rounds}
                   </span>
-                  <h2>Team {room.currentTeam}, you’re up.</h2>
-                </div>
-                <div
-                  className={`turn-timer ${
-                    room.timeLeft <= 10 ? "urgent" : ""
-                  }`}
-                  role="timer"
-                  aria-label={`${room.timeLeft} seconds remaining`}
-                >
-                  <strong>{room.timeLeft}</strong>
-                  <span>seconds</span>
+                  <h2>
+                    {phase === "reveal"
+                      ? "That’s the word."
+                      : describing
+                      ? "You’re describing."
+                      : `Team ${room.currentTeam}, you’re up.`}
+                  </h2>
                 </div>
               </div>
-              <div className="timer-track" aria-hidden="true">
+              <div
+                className={`timer-track ${phase !== "active" ? "is-idle" : ""}`}
+                aria-hidden="true"
+              >
                 <div
                   style={{
                     width: `${
@@ -284,7 +331,47 @@ export const GamePage: React.FC = () => {
                   )
                 )}
               </div>
-              {describing ? (
+              {phase === "countdown" ? (
+                <div className="turn-interlude countdown-card" role="status">
+                  <span className="section-eyebrow">
+                    {describing
+                      ? "Your turn to describe"
+                      : `${name(room.describer || "")} is up next`}
+                  </span>
+                  <strong
+                    className="countdown-number"
+                    key={`${room.turnId}:${room.phaseSeconds}`}
+                  >
+                    {room.phaseSeconds || 1}
+                  </strong>
+                  <p>
+                    {waiting
+                      ? "Watch along with the room."
+                      : "Get ready. The word is coming…"}
+                  </p>
+                </div>
+              ) : phase === "reveal" && lastTurn ? (
+                <div
+                  className={`turn-interlude reveal-card ${lastTurn.outcome}`}
+                  role="status"
+                >
+                  <span className="outcome-stamp">
+                    {lastTurn.outcome === "correct"
+                      ? `Nice one! +1 to Team ${lastTurn.team}`
+                      : lastTurn.outcome === "passed"
+                      ? "Passed · no point this time"
+                      : "Time’s up · so close!"}
+                  </span>
+                  <strong className="revealed-word">{lastTurn.word}</strong>
+                  <p>
+                    {room.history.length === room.settings.rounds * 2
+                      ? "Final scores coming up…"
+                      : `Team ${
+                          room.currentTeam === "1" ? "2" : "1"
+                        }, you’re next.`}
+                  </p>
+                </div>
+              ) : describing ? (
                 <div className="secret-word">
                   <span className="section-eyebrow">
                     Your word · only you can see it
@@ -399,15 +486,21 @@ export const GamePage: React.FC = () => {
           )}
 
           {room.history.length > 0 && (
-            <section className="match-card recap-card">
-              <div className="section-heading">
+            <details
+              key={
+                room.status === "finished" ? "results-history" : "match-history"
+              }
+              className="match-card recap-card"
+              open={room.status === "finished" ? true : undefined}
+            >
+              <summary className="section-heading">
                 <h3>
                   {room.status === "finished"
                     ? "Round-by-round results"
                     : "The match so far"}
                 </h3>
                 <span>{room.history.length} turns played</span>
-              </div>
+              </summary>
               <div className="recap-scroll">
                 <table>
                   <caption className="sr-only">
@@ -458,15 +551,9 @@ export const GamePage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
-            </section>
+            </details>
           )}
 
-          <VideoChat
-            key={roomName}
-            roomName={roomName}
-            players={room.players}
-            nicknames={room.nicknames}
-          />
           {room.status === "playing" && room.guesses.length > 0 && (
             <details className="match-card guesses-card">
               <summary>
@@ -487,14 +574,29 @@ export const GamePage: React.FC = () => {
           )}
         </div>
 
+        <VideoChat
+          key={roomName}
+          roomName={roomName}
+          players={room.players}
+          nicknames={room.nicknames}
+          describer={
+            room.status === "playing" && phase !== "reveal"
+              ? room.describer
+              : null
+          }
+        />
         <aside className="match-sidebar" aria-label="Teams and players">
-          <section className="match-card teams-card">
-            <div className="section-heading">
+          <details
+            key={room.status === "waiting" ? "lobby-teams" : "match-teams"}
+            className="match-card teams-card"
+            open={room.status === "waiting" ? true : undefined}
+          >
+            <summary className="section-heading">
               <h3>The teams</h3>
               <span>
-                {room.status === "waiting" ? "Pick your side" : "Teams locked"}
+                {room.status === "waiting" ? "Pick your side" : "View players"}
               </span>
-            </div>
+            </summary>
             {TEAMS.map((team) => (
               <div
                 key={team}
@@ -540,7 +642,7 @@ export const GamePage: React.FC = () => {
                 )}
               </div>
             ))}
-          </section>
+          </details>
           {room.waitingPlayers.length > 0 && (
             <section className="match-card waiting-card">
               <div className="section-heading">

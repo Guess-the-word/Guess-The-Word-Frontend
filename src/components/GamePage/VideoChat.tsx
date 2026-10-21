@@ -8,6 +8,7 @@ import "./VideoChat.css";
 interface VideoChatProps {
   roomName: string;
   players: string[];
+  describer?: string | null;
   nicknames?: Record<string, string>;
 }
 
@@ -15,11 +16,13 @@ export const VideoChat: React.FC<VideoChatProps> = ({
   roomName,
   players,
   nicknames = {},
+  describer = null,
 }) => {
   const local = useLocalMedia();
   const [remote, setRemote] = useState<RemoteMedia[]>([]);
   const [connectionError, setConnectionError] = useState("");
   const [soundOn, setSoundOn] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const media = useRef<RoomMedia | null>(null);
 
   useEffect(() => {
@@ -42,6 +45,10 @@ export const VideoChat: React.FC<VideoChatProps> = ({
     media.current?.setStream(local.stream);
   }, [local.stream, roomName]);
 
+  useEffect(() => {
+    if (expanded && !players.includes(expanded)) setExpanded(null);
+  }, [players, expanded]);
+
   const others = players.filter((id) => id !== socket.id);
   const name = (id: string) => {
     const base = nicknames[id] || "Friend";
@@ -60,8 +67,8 @@ export const VideoChat: React.FC<VideoChatProps> = ({
     <section className="videoChatContainer" aria-label="Video room">
       <div className="video-toolbar">
         <div>
-          <h3>Video room</h3>
-          <p>See your friends, even with your camera off.</p>
+          <h3>At the table</h3>
+          <p>Good company. Great guesses.</p>
         </div>
         <span className="video-player-count">
           {players.length} player{players.length === 1 ? "" : "s"}
@@ -70,40 +77,47 @@ export const VideoChat: React.FC<VideoChatProps> = ({
       <div className="video-controls">
         <button
           className={`video-toggle-button ${local.cameraOn ? "secondary" : ""}`}
+          aria-label={
+            local.busy.video
+              ? "Waiting for camera…"
+              : local.cameraOn
+              ? "Turn camera off"
+              : "Turn camera on"
+          }
           aria-pressed={local.cameraOn}
           disabled={local.busy.video}
           onClick={() => local.toggle("video")}
         >
           {local.busy.video
-            ? "Waiting for camera…"
+            ? "Camera…"
             : local.cameraOn
-            ? "Turn camera off"
-            : "Turn camera on"}
+            ? "Camera on"
+            : "Camera off"}
         </button>
         <button
           className={`video-toggle-button ${local.micOn ? "secondary" : ""}`}
+          aria-label={
+            local.busy.audio
+              ? "Waiting for microphone…"
+              : local.micOn
+              ? "Mute microphone"
+              : "Turn microphone on"
+          }
           aria-pressed={local.micOn}
           disabled={local.busy.audio}
           onClick={() => local.toggle("audio")}
         >
-          {local.busy.audio
-            ? "Waiting for microphone…"
-            : local.micOn
-            ? "Mute microphone"
-            : "Turn microphone on"}
+          {local.busy.audio ? "Mic…" : local.micOn ? "Mic on" : "Mic off"}
         </button>
         <button
           className="video-toggle-button secondary"
+          aria-label={soundOn ? "Mute room sound" : "Turn room sound on"}
           aria-pressed={soundOn}
           onClick={() => setSoundOn((on) => !on)}
         >
-          {soundOn ? "Mute room sound" : "Turn room sound on"}
+          {soundOn ? "Sound on" : "Sound off"}
         </button>
       </div>
-      <p className="video-help">
-        Your camera and mic start off. Room sound lets you hear others without
-        sharing your microphone.
-      </p>
       {(local.busy.video || local.busy.audio) && (
         <div className="video-permission" role="status">
           Allow access in the browser permission prompt.
@@ -149,8 +163,29 @@ export const VideoChat: React.FC<VideoChatProps> = ({
           {error}
         </div>
       ))}
-      <div className="videoGrid">
-        <div className="videoSlot">
+      <div className={`videoGrid ${expanded ? "has-expanded" : ""}`}>
+        <div
+          className={`videoSlot ${
+            describer === socket.id ? "is-describing" : ""
+          } ${expanded === socket.id ? "is-expanded" : ""}`}
+        >
+          {describer === socket.id && (
+            <span className="describing-tag">Describing</span>
+          )}
+          <button
+            className="video-expand"
+            aria-label={
+              expanded === socket.id
+                ? "Shrink your video"
+                : "Enlarge your video"
+            }
+            aria-expanded={expanded === socket.id}
+            onClick={() =>
+              setExpanded(expanded === socket.id ? null : socket.id || null)
+            }
+          >
+            ⤢
+          </button>
           <VideoPlayer stream={local.stream} muted label="Your camera" />
           {(!local.cameraOn || local.paused.video) && (
             <div className="video-placeholder">
@@ -183,7 +218,25 @@ export const VideoChat: React.FC<VideoChatProps> = ({
               ? ""
               : "Camera off";
           return (
-            <div className="videoSlot" key={id}>
+            <div
+              className={`videoSlot ${
+                describer === id ? "is-describing" : ""
+              } ${expanded === id ? "is-expanded" : ""}`}
+              key={id}
+            >
+              {describer === id && (
+                <span className="describing-tag">Describing</span>
+              )}
+              <button
+                className="video-expand"
+                aria-label={`${expanded === id ? "Shrink" : "Enlarge"} ${name(
+                  id
+                )}’s video`}
+                aria-expanded={expanded === id}
+                onClick={() => setExpanded(expanded === id ? null : id)}
+              >
+                ⤢
+              </button>
               <VideoPlayer
                 stream={participant?.stream || null}
                 muted={!soundOn}
@@ -209,24 +262,32 @@ export const VideoChat: React.FC<VideoChatProps> = ({
           );
         })}
       </div>
-      <div className="video-footer">
-        <span>
-          {others.length
-            ? "Everyone in this room can see and hear what you share."
-            : "Invite a friend to see their video here."}
-        </span>
-        {others.length > 0 && (
-          <button
-            className="video-reconnect"
-            onClick={() => {
-              setConnectionError("");
-              media.current?.reconnect();
-            }}
-          >
-            Reconnect video
-          </button>
-        )}
-      </div>
+      <details className="video-settings">
+        <summary>Audio &amp; video help</summary>
+        <p className="video-help">
+          Camera and mic start off. Turn Sound on to hear friends without
+          sharing your microphone. Tap a video’s expand button for a closer
+          look.
+        </p>
+        <div className="video-footer">
+          <span>
+            {others.length
+              ? "Everyone in this room can see and hear what you share."
+              : "Invite a friend to see their video here."}
+          </span>
+          {others.length > 0 && (
+            <button
+              className="video-reconnect"
+              onClick={() => {
+                setConnectionError("");
+                media.current?.reconnect();
+              }}
+            >
+              Reconnect video
+            </button>
+          )}
+        </div>
+      </details>
     </section>
   );
 };

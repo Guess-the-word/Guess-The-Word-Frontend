@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Container from "react-bootstrap/Container";
 import { Alert } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
-import { socket } from "../../services/socket";
 import "./HomePage.css";
 
 export const HomePage: React.FC = () => {
@@ -14,19 +13,6 @@ export const HomePage: React.FC = () => {
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isJoining, setIsJoining] = useState(false);
-
-  useEffect(() => {
-    const handleRoomUpdate = ({ roomName }: { roomName: string }) => {
-      setIsJoining(false);
-      navigate(`/room/${roomName}`);
-    };
-
-    socket.on("roomUpdate", handleRoomUpdate);
-
-    return () => {
-      socket.off("roomUpdate", handleRoomUpdate);
-    };
-  }, [navigate]);
 
   const validateInput = (inputSize: number, value = roomName): boolean => {
     const alphanumericRegex = /^[0-9a-zA-Z]+$/;
@@ -64,7 +50,7 @@ export const HomePage: React.FC = () => {
         localStorage.removeItem("guessTheWordPlayerName");
       }
 
-      socket.emit("joinRoom", { roomName, nickname });
+      navigate(`/room/${roomName}`);
     }
   };
 

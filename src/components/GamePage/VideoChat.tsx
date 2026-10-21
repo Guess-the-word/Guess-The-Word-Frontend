@@ -1,20 +1,9 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import SimplePeer, { SignalData } from "simple-peer";
+import React, { useEffect, useRef, useState } from "react";
 import { socket } from "../../services/socket";
 import { VideoPlayer } from "./VideoPlayer";
+import { RemoteMedia, RoomMedia } from "./roomMedia";
+import { useLocalMedia } from "./useLocalMedia";
 import "./VideoChat.css";
-
-interface PeerObject {
-  peerId: string;
-  peer: SimplePeer.Instance;
-  stream: MediaStream | null;
-}
 
 interface VideoChatProps {
   roomName: string;
@@ -23,268 +12,221 @@ interface VideoChatProps {
 }
 
 export const VideoChat: React.FC<VideoChatProps> = ({
+  roomName,
   players,
   nicknames = {},
 }) => {
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [peers, setPeers] = useState<PeerObject[]>([]);
-  const [isStreamReady, setIsStreamReady] = useState(false);
-  const [isVideoEnabled, setIsVideoEnabled] = useState(false);
-  const [streamError, setStreamError] = useState("");
-  const peersRef = useRef<PeerObject[]>([]);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const connectionTimeoutRef = useRef<NodeJS.Timeout>();
-
-  const stablePlayers = useMemo(() => {
-    return players.filter((id) => id !== socket.id).sort();
-  }, [players]);
-
-  const getName = useCallback(
-    (id: string): string => nicknames[id] || "Friend",
-    [nicknames]
-  );
-
-  const stopPeers = useCallback(() => {
-    peersRef.current.forEach((obj) => {
-      obj.peer.destroy();
-      if (obj.stream) {
-        obj.stream.getTracks().forEach((track) => track.stop());
-      }
-    });
-    peersRef.current = [];
-    setPeers([]);
-  }, []);
-
-  const stopStream = useCallback(() => {
-    if (connectionTimeoutRef.current) {
-      clearTimeout(connectionTimeoutRef.current);
-    }
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => track.stop());
-    }
-    localStreamRef.current = null;
-    setLocalStream(null);
-    setIsStreamReady(false);
-    setIsVideoEnabled(false);
-    stopPeers();
-  }, [stopPeers]);
-
-  const startStream = async (): Promise<void> => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setStreamError("Video is not available in this browser.");
-      return;
-    }
-
-    try {
-      setStreamError("");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      localStreamRef.current = stream;
-      setLocalStream(stream);
-      setIsVideoEnabled(true);
-      window.setTimeout(() => setIsStreamReady(true), 400);
-    } catch (err) {
-      console.error("Could not get user media", err);
-      setStreamError("Camera or microphone permission was blocked.");
-      setIsVideoEnabled(false);
-      setIsStreamReady(false);
-    }
-  };
+  const local = useLocalMedia();
+  const [remote, setRemote] = useState<RemoteMedia[]>([]);
+  const [connectionError, setConnectionError] = useState("");
+  const [soundOn, setSoundOn] = useState(false);
+  const media = useRef<RoomMedia | null>(null);
 
   useEffect(() => {
-    peersRef.current = peers;
-  }, [peers]);
-
-  useEffect(() => {
-    localStreamRef.current = localStream;
-  }, [localStream]);
-
-  useEffect(() => {
-    if (!localStream || !isStreamReady || !isVideoEnabled) {
-      return;
-    }
-
-    const delay = peers.length === 0 ? 1000 : 0;
-
-    connectionTimeoutRef.current = setTimeout(() => {
-      const currentPeerIds = peersRef.current.map((p) => p.peerId);
-      const newPlayerIds = stablePlayers;
-      const arraysEqual =
-        currentPeerIds.length === newPlayerIds.length &&
-        currentPeerIds.every((id) => newPlayerIds.includes(id));
-
-      if (arraysEqual) {
-        return;
-      }
-
-      const playersWhoLeft = currentPeerIds.filter(
-        (id) => !newPlayerIds.includes(id)
-      );
-
-      playersWhoLeft.forEach((playerId) => {
-        const peerObj = peersRef.current.find((p) => p.peerId === playerId);
-        if (peerObj) {
-          peerObj.peer.destroy();
-          if (peerObj.stream) {
-            peerObj.stream.getTracks().forEach((track) => track.stop());
-          }
-        }
-      });
-
-      if (playersWhoLeft.length > 0) {
-        setPeers((prev) => prev.filter((p) => newPlayerIds.includes(p.peerId)));
-      }
-
-      const playersWhoJoined = newPlayerIds.filter(
-        (id) => !currentPeerIds.includes(id)
-      );
-
-      if (playersWhoJoined.length > 0) {
-        const newPeers: PeerObject[] = [];
-
-        playersWhoJoined.forEach((playerId) => {
-          const peer = new SimplePeer({
-            initiator: (socket.id || "") < playerId,
-            trickle: false,
-            stream: localStream,
-          });
-
-          peer.on("signal", (signalData: SignalData) => {
-            socket.emit("webrtc-signal", {
-              target: playerId,
-              callerId: socket.id,
-              signal: signalData,
-            });
-          });
-
-          peer.on("stream", (remoteStream: MediaStream) => {
-            setPeers((existing) =>
-              existing.map((obj) =>
-                obj.peerId === playerId ? { ...obj, stream: remoteStream } : obj
-              )
-            );
-          });
-
-          peer.on("track", (_track, remoteStream) => {
-            setPeers((existing) =>
-              existing.map((obj) =>
-                obj.peerId === playerId
-                  ? { ...obj, stream: remoteStream as MediaStream }
-                  : obj
-              )
-            );
-          });
-
-          peer.on("error", (err) => {
-            console.error(`Peer error for ${playerId}:`, err);
-          });
-
-          peer.on("close", () => {
-            setPeers((prev) => prev.filter((p) => p.peerId !== playerId));
-          });
-
-          newPeers.push({ peerId: playerId, peer, stream: null });
-        });
-
-        if (newPeers.length > 0) {
-          setPeers((prev) => [...prev, ...newPeers]);
-        }
-      }
-    }, delay);
-
-    return () => {
-      if (connectionTimeoutRef.current) {
-        clearTimeout(connectionTimeoutRef.current);
-      }
-    };
-  }, [stablePlayers, localStream, isStreamReady, isVideoEnabled, peers.length]);
-
-  useEffect(() => {
-    function handleSignal(payload: { callerId: string; signal: SignalData }) {
-      const { callerId, signal } = payload;
-      const peerObj = peersRef.current.find((p) => p.peerId === callerId);
-
-      if (!peerObj) {
-        return;
-      }
-
-      try {
-        peerObj.peer.signal(signal);
-      } catch (err) {
-        console.error(`Error handling signal from ${callerId}:`, err);
-      }
-    }
-
-    socket.on("webrtc-signal", handleSignal);
-    return () => {
-      socket.off("webrtc-signal", handleSignal);
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      stopStream();
-    };
-  }, [stopStream]);
-
-  const displayedPeers = peers.slice(0, 3);
-  const hiddenPeerCount = Math.max(0, peers.length - displayedPeers.length);
-  const totalVideos = 1 + displayedPeers.length;
-
-  if (!isVideoEnabled) {
-    return (
-      <div className="videoChatContainer videoChatContainerIdle">
-        <div className="video-empty-state">
-          <div>
-            <h3>Video Room</h3>
-            <p>
-              {players.length} player{players.length === 1 ? "" : "s"} in room
-            </p>
-          </div>
-          <button className="video-toggle-button" onClick={startStream}>
-            Start Video
-          </button>
-        </div>
-        {streamError && <div className="video-error">{streamError}</div>}
-      </div>
+    const controller = new RoomMedia(
+      socket,
+      roomName,
+      setRemote,
+      setConnectionError
     );
-  }
+    media.current = controller;
+    return () => {
+      controller.dispose();
+      media.current = null;
+    };
+  }, [roomName]);
+  useEffect(() => {
+    media.current?.setPlayers(players);
+  }, [players, roomName]);
+  useEffect(() => {
+    media.current?.setStream(local.stream);
+  }, [local.stream, roomName]);
+
+  const others = players.filter((id) => id !== socket.id);
+  const name = (id: string) => {
+    const base = nicknames[id] || "Friend";
+    const duplicates = players.filter((player) => nicknames[player] === base);
+    return duplicates.length > 1
+      ? `${base} · ${duplicates.indexOf(id) + 1}`
+      : base;
+  };
+  const errors = [
+    local.errors.video,
+    local.errors.audio,
+    connectionError,
+  ].filter(Boolean);
 
   return (
-    <div className="videoChatContainer">
+    <section className="videoChatContainer" aria-label="Video room">
       <div className="video-toolbar">
         <div>
-          <h3>Video Room</h3>
-          <p>
-            {players.length} player{players.length === 1 ? "" : "s"} in room
-          </p>
+          <h3>Video room</h3>
+          <p>See your friends, even with your camera off.</p>
         </div>
-        <button className="video-toggle-button secondary" onClick={stopStream}>
-          Turn Off
+        <span className="video-player-count">
+          {players.length} player{players.length === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div className="video-controls">
+        <button
+          className={`video-toggle-button ${local.cameraOn ? "secondary" : ""}`}
+          aria-pressed={local.cameraOn}
+          disabled={local.busy.video}
+          onClick={() => local.toggle("video")}
+        >
+          {local.busy.video
+            ? "Waiting for camera…"
+            : local.cameraOn
+            ? "Turn camera off"
+            : "Turn camera on"}
+        </button>
+        <button
+          className={`video-toggle-button ${local.micOn ? "secondary" : ""}`}
+          aria-pressed={local.micOn}
+          disabled={local.busy.audio}
+          onClick={() => local.toggle("audio")}
+        >
+          {local.busy.audio
+            ? "Waiting for microphone…"
+            : local.micOn
+            ? "Mute microphone"
+            : "Turn microphone on"}
+        </button>
+        <button
+          className="video-toggle-button secondary"
+          aria-pressed={soundOn}
+          onClick={() => setSoundOn((on) => !on)}
+        >
+          {soundOn ? "Mute room sound" : "Turn room sound on"}
         </button>
       </div>
-
-      <div className={`videoGrid videoCount-${Math.min(totalVideos, 4)}`}>
-        <div className="videoSlot">
-          <VideoPlayer stream={localStream} muted />
-          <span className="player-name">You</span>
+      <p className="video-help">
+        Your camera and mic start off. Room sound lets you hear others without
+        sharing your microphone.
+      </p>
+      {(local.busy.video || local.busy.audio) && (
+        <div className="video-permission" role="status">
+          Allow access in the browser permission prompt.
+          {local.busy.video && (
+            <button onClick={() => local.cancel("video")}>
+              Cancel camera request
+            </button>
+          )}
+          {local.busy.audio && (
+            <button onClick={() => local.cancel("audio")}>
+              Cancel microphone request
+            </button>
+          )}
         </div>
-        {displayedPeers.map((obj) => (
-          <div className="videoSlot" key={obj.peerId}>
-            <VideoPlayer stream={obj.stream} />
-            {!obj.stream && (
-              <span className="connecting-label">Connecting</span>
-            )}
-            <span className="player-name">{getName(obj.peerId)}</span>
-          </div>
-        ))}
-      </div>
-
-      {hiddenPeerCount > 0 && (
-        <div className="video-overflow">{hiddenPeerCount} more off camera</div>
       )}
-    </div>
+      {(local.paused.video || local.paused.audio) && (
+        <div className="video-permission" role="status">
+          <span>
+            The browser paused your{" "}
+            {local.paused.video ? "camera" : "microphone"}. Another tab may be
+            using it. Turn it off in that tab, then resume here.
+          </span>
+          {local.paused.video && (
+            <button
+              disabled={local.busy.video}
+              onClick={() => local.resume("video")}
+            >
+              Resume camera
+            </button>
+          )}
+          {local.paused.audio && (
+            <button
+              disabled={local.busy.audio}
+              onClick={() => local.resume("audio")}
+            >
+              Resume microphone
+            </button>
+          )}
+        </div>
+      )}
+      {errors.map((error) => (
+        <div className="video-error" role="alert" key={error}>
+          {error}
+        </div>
+      ))}
+      <div className="videoGrid">
+        <div className="videoSlot">
+          <VideoPlayer stream={local.stream} muted label="Your camera" />
+          {(!local.cameraOn || local.paused.video) && (
+            <div className="video-placeholder">
+              <span>You</span>
+              <small>
+                {local.paused.video ? "Camera paused by browser" : "Camera off"}
+              </small>
+            </div>
+          )}
+          <span className="player-name">
+            You ·{" "}
+            {local.paused.audio
+              ? "Mic paused"
+              : local.micOn
+              ? "Mic on"
+              : "Mic off"}
+          </span>
+        </div>
+        {others.map((id) => {
+          const participant = remote.find((item) => item.playerId === id);
+          const connected = participant?.status === "connected";
+          const status =
+            participant?.status === "failed"
+              ? "Connection failed · try Reconnect video"
+              : participant?.status === "connecting"
+              ? "Connecting…"
+              : participant?.videoPaused
+              ? "Camera paused by their browser"
+              : participant?.video
+              ? ""
+              : "Camera off";
+          return (
+            <div className="videoSlot" key={id}>
+              <VideoPlayer
+                stream={participant?.stream || null}
+                muted={!soundOn}
+                label={`${name(id)}'s video`}
+              />
+              {(!connected ||
+                !participant?.video ||
+                participant.videoPaused) && (
+                <div className="video-placeholder">
+                  <span>{name(id)}</span>
+                  <small>{status}</small>
+                </div>
+              )}
+              <span className="player-name">
+                {name(id)} ·{" "}
+                {participant?.audioPaused
+                  ? "Mic paused"
+                  : participant?.audio
+                  ? "Mic on"
+                  : "Mic off"}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="video-footer">
+        <span>
+          {others.length
+            ? "Everyone in this room can see and hear what you share."
+            : "Invite a friend to see their video here."}
+        </span>
+        {others.length > 0 && (
+          <button
+            className="video-reconnect"
+            onClick={() => {
+              setConnectionError("");
+              media.current?.reconnect();
+            }}
+          >
+            Reconnect video
+          </button>
+        )}
+      </div>
+    </section>
   );
 };

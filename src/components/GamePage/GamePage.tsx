@@ -462,6 +462,7 @@ export const GamePage: React.FC = () => {
           )}
 
           <VideoChat
+            key={roomName}
             roomName={roomName}
             players={room.players}
             nicknames={room.nicknames}

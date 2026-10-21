@@ -45,7 +45,7 @@ node scripts/test-multiplayer.cjs
 
 The integration script uses the frontend's installed Socket.IO client and the compiled backend. It creates a temporary loopback server, checks real multiplayer messages, plays a full 2–1 match including a real 30-second timeout, verifies results across clients, and checks rematches, unauthorized actions, spectators, disconnects, host transfer, and fresh-room cleanup. It closes its server and clients afterward. It does not touch rooms in your running app.
 
-There are 28 backend tests and 15 frontend tests, plus the integration script. Existing Create React App/Babel and Browserslist dependency warnings may appear. The delayed Babel warning can keep the test process alive briefly; `--detectOpenHandles` identifies it as a dependency warning timer.
+There are 28 backend tests and 34 frontend tests, plus the integration script. Existing Create React App/Babel and Browserslist dependency warnings may appear. The delayed Babel warning can keep the test process alive briefly; `--detectOpenHandles` identifies it as a dependency warning timer.
 
 ## Manual acceptance test
 
@@ -63,6 +63,30 @@ There are 28 backend tests and 15 frontend tests, plus the integration script. E
 5. Choose Play again as host. Confirm everyone returns to the lobby, spectators get teams, scores/history clear, settings/teams remain, and the next match does not start automatically. Pass all six turns to check a 0–0 draw.
 6. During a new match, close or refresh any participant. The remaining players should see a canceled-match explanation and a clean lobby. If the host leaves, the earliest remaining player becomes host.
 7. Leave after results: results remain. Close every session and reuse the room name: defaults and a fresh room return.
-8. Check at a narrow mobile width and with keyboard navigation. Camera/microphone capture and real media exchange remain a manual check; browser verification for this change did not enable those permissions.
+8. Check at a narrow mobile width and with keyboard navigation. Check camera and microphone permissions on your actual devices; the automated video checks use fake media devices.
 
 Use separate browser profiles/browsers for independent saved names. Multiple Chrome incognito windows share the same incognito storage session until all are closed; the app still treats their live connections as separate players.
+
+
+## Video and microphone
+
+You can receive other players' video without enabling your own camera or microphone. Camera, microphone, and room sound have separate controls and start off. Turning off your camera releases that device without stopping the microphone or remote video. Turning off your microphone releases it without stopping the camera. Leaving the room releases both devices.
+
+If a browser blocks sound playback, the video stays visible and offers **Play sound**. Device errors distinguish blocked permissions, missing devices, busy devices, and insecure pages. A pending permission request can be canceled, and **Reconnect video** retries the room connections without requesting devices again.
+
+Camera and microphone access require HTTPS in a deployed app (localhost is allowed for development). For permission troubleshooting, check both browser site settings and the operating system's camera/microphone privacy settings. See [getUserMedia requirements](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia).
+
+The default WebRTC configuration uses the library's public STUN servers. Some networks require a TURN relay. Set `REACT_APP_ICE_SERVERS` to a JSON array of `RTCIceServer` entries before building to supply your deployment's STUN/TURN configuration. This setting is public browser configuration, so use appropriately limited relay credentials. No relay service is provisioned by this change. See [SimplePeer configuration](https://github.com/feross/simple-peer#peer--new-peeropts).
+
+### Real browser regression test
+
+With both app servers running and Google Chrome installed, install Playwright into a temporary directory and run:
+
+```sh
+npm install --prefix /tmp/guess-video-qa --no-audit --no-fund playwright
+NODE_PATH=/tmp/guess-video-qa/node_modules node scripts/test-video.cjs
+```
+
+`APP_URL` overrides the frontend address; `BROWSER_CHANNEL` overrides the Playwright browser channel. The test uses separate browser contexts and fake camera/microphone devices, never your real webcam. It verifies decoded remote video frames with the viewer's devices off, two-way video, independent microphone and sound controls, late joins, restarting, reconnecting, refresh, gameplay continuity, device cleanup, camera denial, and a 390px layout. It saves a screenshot to `/tmp/guess-video-controls.png` (`VIDEO_SCREENSHOT` can override this path).
+
+This local test does not verify physical-device permissions, Safari/Firefox, or media connectivity across restrictive external networks. Those remain manual deployment checks.

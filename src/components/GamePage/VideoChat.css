@@ -1,193 +1,201 @@
 .videoChatContainer {
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.97);
   border: 1px solid rgba(255, 255, 255, 0.45);
-  border-radius: 8px;
+  border-radius: 16px;
   box-shadow: 0 12px 30px rgba(14, 24, 43, 0.14);
-  padding: 1rem;
+  padding: 1.25rem;
 }
-
-.videoChatContainerIdle {
-  min-height: 120px;
-}
-
-.video-empty-state,
 .video-toolbar {
   align-items: center;
   display: flex;
   gap: 1rem;
   justify-content: space-between;
 }
-
-.video-empty-state h3,
 .video-toolbar h3 {
   color: #152238;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 800;
   margin: 0 0 0.25rem;
 }
-
-.video-empty-state p,
-.video-toolbar p {
-  color: #64748b;
-  font-size: 0.9rem;
+.video-toolbar p,
+.video-help,
+.video-footer {
+  color: #526176;
+  font-size: 0.84rem;
   margin: 0;
 }
-
-.video-error {
-  background: #fee2e2;
-  border: 1px solid #fecaca;
+.video-player-count {
+  background: #e3f3ee;
+  border-radius: 999px;
+  color: #155e56;
+  font-size: 0.8rem;
+  padding: 0.4rem 0.65rem;
+  white-space: nowrap;
+}
+.video-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin: 1rem 0 0.7rem;
+}
+.video-toggle-button {
+  background: #0f766e;
+  border: 1px solid transparent;
   border-radius: 8px;
-  color: #991b1b;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
   font-weight: 700;
+  min-height: 44px;
+  padding: 0.65rem 0.9rem;
+}
+.video-toggle-button:hover {
+  background: #115e59;
+}
+.video-toggle-button.secondary {
+  background: #edf2f6;
+  border-color: #d7e0e8;
+  color: #26394e;
+}
+.video-toggle-button.secondary:hover {
+  background: #dfe8ef;
+}
+.video-toggle-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.videoChatContainer button:focus-visible {
+  outline: 3px solid #0f766e;
+  outline-offset: 3px;
+}
+.video-error {
+  background: #fff1f0;
+  border: 1px solid #ffc9c3;
+  border-radius: 8px;
+  color: #92372c;
+  font-size: 0.9rem;
   margin-top: 0.75rem;
   padding: 0.7rem 0.85rem;
 }
-
-.video-toggle-button {
-  background: #0f766e;
-  border: none;
+.video-permission {
+  background: #fff5d6;
   border-radius: 8px;
-  color: #ffffff;
+  color: #70531f;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.7rem;
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+.video-permission button,
+.video-reconnect {
+  background: transparent;
+  border: 0;
+  color: #0b6962;
   cursor: pointer;
-  font-weight: 800;
-  min-height: 42px;
-  padding: 0.65rem 1rem;
-  transition: background 0.2s ease, transform 0.2s ease;
-  white-space: nowrap;
+  font-weight: 700;
+  text-decoration: underline;
+  min-height: 32px;
 }
-
-.video-toggle-button:hover {
-  background: #115e59;
-  transform: translateY(-1px);
-}
-
-.video-toggle-button.secondary {
-  background: #334155;
-}
-
-.video-toggle-button.secondary:hover {
-  background: #1f2937;
-}
-
 .videoGrid {
   display: grid;
-  gap: 0.85rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
   margin-top: 1rem;
-  width: 100%;
 }
-
-.videoCount-1 {
-  grid-template-columns: 1fr;
-}
-
-.videoCount-2 {
-  grid-template-columns: 1fr 1fr;
-}
-
-.videoCount-3,
-.videoCount-4 {
-  grid-template-columns: 1fr 1fr;
-}
-
 .videoSlot {
   aspect-ratio: 16 / 9;
-  background: linear-gradient(135deg, #132238, #0f766e);
-  border: 1px solid rgba(15, 118, 110, 0.22);
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: linear-gradient(135deg, #182e43, #1b5755);
+  border-radius: 12px;
   overflow: hidden;
   position: relative;
   width: 100%;
 }
-
+.videoSlot:only-child {
+  max-width: 380px;
+}
 .video-element {
   background: transparent;
-  border-radius: 8px;
   height: 100%;
   object-fit: cover;
   width: 100%;
 }
-
 .video-element:not(.has-stream) {
   opacity: 0;
 }
-
-.videoSlot::before {
+.video-placeholder {
   align-items: center;
-  background: rgba(255, 255, 255, 0.14);
-  border-radius: 999px;
-  color: rgba(255, 255, 255, 0.78);
-  content: "Video";
+  color: #e2eeed;
   display: flex;
-  font-size: 0.8rem;
-  font-weight: 800;
-  height: 58px;
+  flex-direction: column;
+  gap: 0.3rem;
   justify-content: center;
-  left: 50%;
-  letter-spacing: 0.03em;
+  inset: 0;
+  padding: 1rem 1rem 2.5rem;
   position: absolute;
-  text-transform: uppercase;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 58px;
+  text-align: center;
 }
-
-.videoSlot:has(.has-stream)::before {
-  display: none;
+.video-placeholder span {
+  font-size: 1rem;
+  font-weight: 700;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
-
-.player-name,
-.connecting-label {
-  backdrop-filter: blur(8px);
-  background: rgba(15, 23, 42, 0.72);
-  border-radius: 999px;
-  color: #ffffff;
-  font-size: 0.78rem;
-  font-weight: 800;
-  left: 0.65rem;
-  max-width: calc(100% - 1.3rem);
+.video-placeholder small {
+  font-size: 0.75rem;
+  color: #b7d6d3;
+}
+.player-name {
+  background: rgba(15, 23, 42, 0.8);
+  border-radius: 6px;
+  bottom: 0.6rem;
+  color: #fff;
+  font-size: 0.75rem;
+  left: 0.6rem;
+  max-width: calc(100% - 1.2rem);
   overflow: hidden;
-  padding: 0.32rem 0.55rem;
+  padding: 0.3rem 0.5rem;
   position: absolute;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.video-play-button {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
   z-index: 2;
+  border: 1px solid #fff;
+  border-radius: 6px;
+  background: #fff;
+  color: #183f3e;
+  cursor: pointer;
+  padding: 0.5rem;
+  font-weight: 700;
 }
-
-.player-name {
-  bottom: 0.65rem;
+.video-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: space-between;
+  margin-top: 0.7rem;
 }
-
-.connecting-label {
-  top: 0.65rem;
-}
-
-.video-overflow {
-  color: #475569;
-  font-size: 0.85rem;
-  font-weight: 800;
-  margin-top: 0.75rem;
-  text-align: center;
-}
-
-@media (max-width: 768px) {
-  .video-empty-state,
-  .video-toolbar {
-    align-items: stretch;
-    flex-direction: column;
+@media (max-width: 540px) {
+  .videoChatContainer {
+    padding: 1rem;
   }
-
-  .video-toggle-button {
-    width: 100%;
-  }
-
-  .videoCount-2,
-  .videoCount-3,
-  .videoCount-4 {
+  .video-controls {
+    display: grid;
     grid-template-columns: 1fr;
   }
-
-  .videoSlot {
-    aspect-ratio: 4 / 3;
+  .video-toolbar {
+    align-items: flex-start;
+  }
+  .videoGrid {
+    grid-template-columns: 1fr;
+  }
+  .videoSlot:only-child {
+    max-width: none;
   }
 }

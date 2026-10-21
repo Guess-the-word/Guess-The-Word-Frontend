@@ -30,6 +30,7 @@ export function mediaError(error: unknown, kind: Kind): string {
 export function useLocalMedia() {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [busy, setBusy] = useState({ video: false, audio: false });
+  const [paused, setPaused] = useState({ video: false, audio: false });
   const [errors, setErrors] = useState({ video: "", audio: "" });
   const tracks = useRef<Partial<Record<Kind, MediaStreamTrack>>>({});
   const requests = useRef({ video: 0, audio: 0 });
@@ -52,15 +53,16 @@ export function useLocalMedia() {
     };
   }, []);
 
-  const toggle = async (kind: Kind) => {
+  const toggle = async (kind: Kind, restart = false) => {
     if (pending.current[kind]) return;
     const active = tracks.current[kind];
     setErrors((previous) => ({ ...previous, [kind]: "" }));
     if (active) {
       delete tracks.current[kind];
       active.stop();
+      setPaused((previous) => ({ ...previous, [kind]: false }));
       update();
-      return;
+      if (!restart) return;
     }
     if (!navigator.mediaDevices?.getUserMedia) {
       setErrors((previous) => ({
@@ -93,11 +95,19 @@ export function useLocalMedia() {
       if (!track || track.readyState === "ended")
         throw new Error("No live media track");
       tracks.current[kind] = track;
+      const availability = () => {
+        if (!mounted.current || tracks.current[kind] !== track) return;
+        setPaused((previous) => ({ ...previous, [kind]: track.muted }));
+      };
+      track.addEventListener("mute", availability);
+      track.addEventListener("unmute", availability);
+      availability();
       track.addEventListener(
         "ended",
         () => {
           if (!mounted.current || tracks.current[kind] !== track) return;
           delete tracks.current[kind];
+          setPaused((previous) => ({ ...previous, [kind]: false }));
           setErrors((previous) => ({
             ...previous,
             [kind]: `${label(
@@ -131,6 +141,8 @@ export function useLocalMedia() {
     stream,
     busy,
     errors,
+    paused,
+    resume: (kind: Kind) => toggle(kind, true),
     toggle,
     cancel,
     cameraOn: !!tracks.current.video,

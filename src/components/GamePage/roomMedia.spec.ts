@@ -33,11 +33,18 @@ const peers = () =>
   (SimplePeer as unknown as jest.Mock).mock.results.map(
     (item) => item.value as MockPeer
   );
-const stream = (video = true, audio = false) =>
-  ({
-    getVideoTracks: () => (video ? [{}] : []),
-    getAudioTracks: () => (audio ? [{}] : []),
-  } as unknown as MediaStream);
+class FakeTrack extends EventTarget {
+  muted = false;
+}
+const stream = (video = true, audio = false) => {
+  const camera = video ? [new FakeTrack()] : [];
+  const mic = audio ? [new FakeTrack()] : [];
+  return {
+    getTracks: () => [...camera, ...mic],
+    getVideoTracks: () => camera,
+    getAudioTracks: () => mic,
+  } as unknown as MediaStream;
+};
 interface MockSocket {
   id: string;
   on: jest.Mock;
@@ -111,6 +118,8 @@ test("a viewer with no local devices answers and receives the publisher's stream
       playerId: "a",
       video: true,
       audio: false,
+      videoPaused: false,
+      audioPaused: false,
       status: "connected",
       stream: camera,
     },
@@ -222,4 +231,38 @@ test("disposing unregisters signals and destroys all connections and timers", ()
   expect(sockets.a.off).toHaveBeenCalled();
   expect(peers().every((peer) => peer.destroyed)).toBe(true);
   expect(jest.getTimerCount()).toBe(0);
+});
+
+test("a suspended camera is visible to viewers and unmute restores its status without new peers", () => {
+  const camera = stream();
+  a.setStream(camera);
+  peers()[0].fire("signal", { type: "offer", sdp: "a" });
+  const track = camera.getVideoTracks()[0];
+  Object.defineProperty(track, "muted", { value: true, configurable: true });
+  track.dispatchEvent(new Event("mute"));
+  expect(updates[0].videoPaused).toBe(true);
+  expect(updates[0].audioPaused).toBe(false);
+  Object.defineProperty(track, "muted", { value: false });
+  track.dispatchEvent(new Event("unmute"));
+  expect(updates[0].videoPaused).toBe(false);
+  expect(peers()).toHaveLength(2);
+});
+
+test("old stream mute events and old-session status cannot pause a replacement stream", () => {
+  const old = stream();
+  a.setStream(old);
+  peers()[0].fire("signal", { type: "offer", sdp: "old" });
+  const message = sockets.a.emit.mock.calls.find(
+    (call) => call[1].signal.type === "signal"
+  )?.[1].signal;
+  a.setStream(stream());
+  peers()[2].fire("signal", { type: "offer", sdp: "new" });
+  sockets.a.emit.mockClear();
+  old.getVideoTracks()[0].dispatchEvent(new Event("mute"));
+  expect(sockets.a.emit).not.toHaveBeenCalled();
+  sockets.b.receive({
+    callerId: "a",
+    signal: { ...message, type: "status", videoPaused: true },
+  });
+  expect(updates[0].videoPaused).toBe(false);
 });

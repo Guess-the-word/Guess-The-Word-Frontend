@@ -119,6 +119,31 @@ export const VideoChat: React.FC<VideoChatProps> = ({
           )}
         </div>
       )}
+      {(local.paused.video || local.paused.audio) && (
+        <div className="video-permission" role="status">
+          <span>
+            The browser paused your{" "}
+            {local.paused.video ? "camera" : "microphone"}. Another tab may be
+            using it. Turn it off in that tab, then resume here.
+          </span>
+          {local.paused.video && (
+            <button
+              disabled={local.busy.video}
+              onClick={() => local.resume("video")}
+            >
+              Resume camera
+            </button>
+          )}
+          {local.paused.audio && (
+            <button
+              disabled={local.busy.audio}
+              onClick={() => local.resume("audio")}
+            >
+              Resume microphone
+            </button>
+          )}
+        </div>
+      )}
       {errors.map((error) => (
         <div className="video-error" role="alert" key={error}>
           {error}
@@ -127,14 +152,21 @@ export const VideoChat: React.FC<VideoChatProps> = ({
       <div className="videoGrid">
         <div className="videoSlot">
           <VideoPlayer stream={local.stream} muted label="Your camera" />
-          {!local.cameraOn && (
+          {(!local.cameraOn || local.paused.video) && (
             <div className="video-placeholder">
               <span>You</span>
-              <small>Camera off</small>
+              <small>
+                {local.paused.video ? "Camera paused by browser" : "Camera off"}
+              </small>
             </div>
           )}
           <span className="player-name">
-            You · {local.micOn ? "Mic on" : "Mic off"}
+            You ·{" "}
+            {local.paused.audio
+              ? "Mic paused"
+              : local.micOn
+              ? "Mic on"
+              : "Mic off"}
           </span>
         </div>
         {others.map((id) => {
@@ -145,6 +177,8 @@ export const VideoChat: React.FC<VideoChatProps> = ({
               ? "Connection failed · try Reconnect video"
               : participant?.status === "connecting"
               ? "Connecting…"
+              : participant?.videoPaused
+              ? "Camera paused by their browser"
               : participant?.video
               ? ""
               : "Camera off";
@@ -155,14 +189,21 @@ export const VideoChat: React.FC<VideoChatProps> = ({
                 muted={!soundOn}
                 label={`${name(id)}'s video`}
               />
-              {(!connected || !participant?.video) && (
+              {(!connected ||
+                !participant?.video ||
+                participant.videoPaused) && (
                 <div className="video-placeholder">
                   <span>{name(id)}</span>
                   <small>{status}</small>
                 </div>
               )}
               <span className="player-name">
-                {name(id)} · {participant?.audio ? "Mic on" : "Mic off"}
+                {name(id)} ·{" "}
+                {participant?.audioPaused
+                  ? "Mic paused"
+                  : participant?.audio
+                  ? "Mic on"
+                  : "Mic off"}
               </span>
             </div>
           );

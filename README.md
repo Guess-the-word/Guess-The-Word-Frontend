@@ -45,7 +45,7 @@ node scripts/test-multiplayer.cjs
 
 The integration script uses the frontend's installed Socket.IO client and the compiled backend. It creates a temporary loopback server, checks real multiplayer messages, plays a full 2–1 match including a real 30-second timeout, verifies results across clients, and checks rematches, unauthorized actions, spectators, disconnects, host transfer, and fresh-room cleanup. It closes its server and clients afterward. It does not touch rooms in your running app.
 
-There are 28 backend tests and 34 frontend tests, plus the integration script. Existing Create React App/Babel and Browserslist dependency warnings may appear. The delayed Babel warning can keep the test process alive briefly; `--detectOpenHandles` identifies it as a dependency warning timer.
+There are 28 backend tests and 44 frontend tests, plus the integration script. Existing Create React App/Babel and Browserslist dependency warnings may appear. The delayed Babel warning can keep the test process alive briefly; `--detectOpenHandles` identifies it as a dependency warning timer.
 
 ## Manual acceptance test
 
@@ -72,7 +72,7 @@ Use separate browser profiles/browsers for independent saved names. Multiple Chr
 
 You can receive other players' video without enabling your own camera or microphone. Camera, microphone, and room sound have separate controls and start off. Turning off your camera releases that device without stopping the microphone or remote video. Turning off your microphone releases it without stopping the camera. Leaving the room releases both devices.
 
-If a browser blocks sound playback, the video stays visible and offers **Play sound**. Device errors distinguish blocked permissions, missing devices, busy devices, and insecure pages. A pending permission request can be canceled, and **Reconnect video** retries the room connections without requesting devices again.
+If a browser blocks sound playback, the video stays visible and offers **Play sound**. Playback resumes when a tab becomes visible or focused again, without rebuilding media connections. If the browser suspends capture, both the sender and viewers see a paused status; the sender can explicitly resume that device. Device errors distinguish blocked permissions, missing devices, busy devices, and insecure pages. A pending permission request can be canceled, and **Reconnect video** retries the room connections without requesting devices again.
 
 Camera and microphone access require HTTPS in a deployed app (localhost is allowed for development). For permission troubleshooting, check both browser site settings and the operating system's camera/microphone privacy settings. See [getUserMedia requirements](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia).
 
@@ -90,3 +90,6 @@ NODE_PATH=/tmp/guess-video-qa/node_modules node scripts/test-video.cjs
 `APP_URL` overrides the frontend address; `BROWSER_CHANNEL` overrides the Playwright browser channel. The test uses separate browser contexts and fake camera/microphone devices, never your real webcam. It verifies decoded remote video frames with the viewer's devices off, two-way video, independent microphone and sound controls, late joins, restarting, reconnecting, refresh, gameplay continuity, device cleanup, camera denial, and a 390px layout. It saves a screenshot to `/tmp/guess-video-controls.png` (`VIDEO_SCREENSHOT` can override this path).
 
 This local test does not verify physical-device permissions, Safari/Firefox, or media connectivity across restrictive external networks. Those remain manual deployment checks.
+
+
+For a physical webcam test, first enable the camera in only one tab and leave the viewer's camera off. Switch tabs and confirm playback resumes. If the browser reports that capture is paused, stop capture in the competing tab before choosing **Resume camera**. Some embedded browsers limit concurrent device capture; separate devices or full browser windows are useful for comparison. The automated suspension tests exercise visibility, focus, delayed playback errors, and track mute/unmute events; the exact physical-device behavior in the Codex browser still needs manual verification.

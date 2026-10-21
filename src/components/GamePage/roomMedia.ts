@@ -9,12 +9,14 @@ export interface MediaSocket {
 interface MediaMessage {
   protocol: "guess-media-v1";
   roomName: string;
-  type: "request" | "signal" | "stop" | "unavailable";
+  type: "request" | "signal" | "stop" | "unavailable" | "status";
   sessionId?: string;
   publisherId?: string;
   data?: SignalData;
   video?: boolean;
   audio?: boolean;
+  videoPaused?: boolean;
+  audioPaused?: boolean;
 }
 interface SignalPayload {
   callerId: string;
@@ -25,6 +27,8 @@ export interface RemoteMedia {
   stream: MediaStream | null;
   video: boolean;
   audio: boolean;
+  videoPaused?: boolean;
+  audioPaused?: boolean;
   status: "connecting" | "connected" | "failed";
 }
 interface Connection {
@@ -42,6 +46,7 @@ export class RoomMedia {
   private incoming = new Map<string, Connection>();
   private stream: MediaStream | null = null;
   private disposed = false;
+  private unwatchStream = () => undefined as void;
 
   constructor(
     private socket: MediaSocket,
@@ -106,9 +111,38 @@ export class RoomMedia {
   }
 
   setStream(stream: MediaStream | null) {
+    this.unwatchStream();
     this.stream = stream;
+    const tracks = stream?.getTracks() || [];
+    const changed = () =>
+      this.outgoing.forEach((connection, id) =>
+        this.send(id, {
+          type: "status",
+          sessionId: connection.sessionId,
+          publisherId: this.socket.id,
+          ...this.availability(),
+        })
+      );
+    tracks.forEach((track) => {
+      track.addEventListener("mute", changed);
+      track.addEventListener("unmute", changed);
+    });
+    this.unwatchStream = () =>
+      tracks.forEach((track) => {
+        track.removeEventListener("mute", changed);
+        track.removeEventListener("unmute", changed);
+      });
     this.outgoing.forEach((_value, id) => this.remove(this.outgoing, id, true));
     if (stream) this.players.forEach((id) => this.startSending(id));
+  }
+
+  private availability() {
+    return {
+      videoPaused:
+        this.stream?.getVideoTracks().some((track) => track.muted) || false,
+      audioPaused:
+        this.stream?.getAudioTracks().some((track) => track.muted) || false,
+    };
   }
 
   reconnect() {
@@ -179,6 +213,7 @@ export class RoomMedia {
           data,
           video,
           audio,
+          ...(sending ? this.availability() : {}),
         });
     });
     peer.on("stream", (stream: MediaStream) => {
@@ -229,6 +264,18 @@ export class RoomMedia {
       return;
     }
     if (typeof message.sessionId !== "string") return;
+    if (message.type === "status") {
+      const connection = this.incoming.get(id);
+      if (
+        message.publisherId === id &&
+        connection?.sessionId === message.sessionId
+      ) {
+        connection.media.videoPaused = message.videoPaused === true;
+        connection.media.audioPaused = message.audioPaused === true;
+        this.changed();
+      }
+      return;
+    }
     if (message.type === "stop") {
       if (this.incoming.get(id)?.sessionId === message.sessionId) {
         this.remove(this.incoming, id);
@@ -262,6 +309,15 @@ export class RoomMedia {
       }
     }
     if (
+      connection &&
+      message.publisherId === id &&
+      connection.sessionId === message.sessionId
+    ) {
+      connection.media.videoPaused = message.videoPaused === true;
+      connection.media.audioPaused = message.audioPaused === true;
+      this.changed();
+    }
+    if (
       !connection ||
       connection.sessionId !== message.sessionId ||
       connection.peer.destroyed
@@ -275,6 +331,7 @@ export class RoomMedia {
   };
 
   dispose() {
+    this.unwatchStream();
     this.socket.off("webrtc-signal", this.receive);
     this.outgoing.forEach((_value, id) => this.remove(this.outgoing, id, true));
     this.disposed = true;

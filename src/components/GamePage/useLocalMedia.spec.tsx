@@ -3,6 +3,7 @@ import { useLocalMedia } from "./useLocalMedia";
 
 class FakeTrack extends EventTarget {
   readyState = "live";
+  muted = false;
   stop = jest.fn(() => {
     this.readyState = "ended";
   });
@@ -164,4 +165,55 @@ test("explains missing secure context without throwing", async () => {
     await result.current.toggle("video");
   });
   expect(result.current.errors.video).toContain("HTTPS or localhost");
+});
+
+test("browser capture suspension is tracked without automatically reopening the camera on focus", async () => {
+  const track = new FakeTrack("video");
+  getUserMedia.mockResolvedValue(new FakeStream([track]));
+  const { result } = renderHook(useLocalMedia);
+  await act(async () => {
+    await result.current.toggle("video");
+  });
+  const originalStream = result.current.stream;
+  act(() => {
+    track.muted = true;
+    track.dispatchEvent(new Event("mute"));
+  });
+  expect(result.current.paused.video).toBe(true);
+  expect(result.current.cameraOn).toBe(true);
+  expect(result.current.stream).toBe(originalStream);
+  act(() => window.dispatchEvent(new Event("focus")));
+  expect(getUserMedia).toHaveBeenCalledTimes(1);
+  act(() => {
+    track.muted = false;
+    track.dispatchEvent(new Event("unmute"));
+  });
+  expect(result.current.paused.video).toBe(false);
+});
+
+test("explicit camera resume replaces only that device and ignores old track events", async () => {
+  const old = new FakeTrack("video");
+  const mic = new FakeTrack("audio");
+  const fresh = new FakeTrack("video");
+  fresh.muted = true;
+  getUserMedia
+    .mockResolvedValueOnce(new FakeStream([old]))
+    .mockResolvedValueOnce(new FakeStream([mic]))
+    .mockResolvedValueOnce(new FakeStream([fresh]));
+  const { result } = renderHook(useLocalMedia);
+  await act(async () => {
+    await result.current.toggle("video");
+  });
+  await act(async () => {
+    await result.current.toggle("audio");
+  });
+  await act(async () => {
+    await result.current.resume("video");
+  });
+  expect(old.stop).toHaveBeenCalledTimes(1);
+  expect(mic.stop).not.toHaveBeenCalled();
+  expect(result.current.stream?.getVideoTracks()).toEqual([fresh]);
+  act(() => old.dispatchEvent(new Event("unmute")));
+  expect(result.current.paused.video).toBe(true);
+  expect(result.current.micOn).toBe(true);
 });
